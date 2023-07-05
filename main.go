@@ -74,15 +74,16 @@ func main() {
 // ページ表示
 func RequestRouter(w http.ResponseWriter, r *http.Request) {
 	router := strings.Split(strings.Replace(r.URL.Path, "/", "", 1), "/")
-
+	fmt.Println(router, len(router))
 	switch len(router) {
-	case 0: // Top URL
-		requestLog(r, "ReturnTop()")
-		w.WriteHeader(200)
-		return
-	case 1: // User Profile URL
-		requestLog(r, "ReturnUserProfile()")
+	case 1: // Top/User Profile URL
 		userID := router[0]
+		if userID == "" {
+			requestLog(r, "ReturnTop()")
+			w.WriteHeader(200)
+			return
+		}
+		requestLog(r, "ReturnUserProfile()")
 		// 存在するユーザか
 		if _, err := os.Stat(filepath.Join("./users", userID)); err != nil {
 			w.WriteHeader(404)
