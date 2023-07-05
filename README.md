@@ -51,7 +51,7 @@ Webfingerは最初に`https://${Domain}/.well-known/host-meta`に問い合わせ
 ```
 
 
-openssl genrsa -out privatekey.pem 2048 
-秘密鍵
-openssl rsa -in privatekey.pem -outform pem -pubout -out publickey.pem
-公開鍵
+openssl genrsa -out privatekey.pem 2048  
+秘密鍵  
+openssl rsa -in privatekey.pem -outform pem -pubout -out publickey.pem  
+公開鍵  
