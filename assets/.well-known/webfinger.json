@@ -1,0 +1,10 @@
+{
+  "subject": "${Resource}",
+  "links": [
+      {
+          "rel":  "self",
+          "type": "application/activity+json",
+          "href": "https://${Domain}/${User}/person"
+      }
+  ]
+}

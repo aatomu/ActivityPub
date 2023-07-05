@@ -1,0 +1,26 @@
+{
+  "@context": "https://www.w3.org/ns/activitystreams",
+  "type": "Person",
+  "id": "https://${Domain}/${User}/person",
+  "followers": "https://${Domain}/${User}/followers",
+  "following": "https://${Domain}/${User}/following",
+  "url": "https://${Domain}/${User}",
+  "preferredUsername": "${User}",
+  "name": "${User}",
+  "icon": {
+    "type": "Image",
+    "mediaType": "image/png",
+    "url": "https://${Domain}/${User}/icon"
+  },
+  "summary": "@${User} using on ${Domain}",
+  "published": "2023-07-04T00:00:00+09:00",
+  "inbox": "https://${Domain}/${User}/inbox",
+  "outbox": "https://${Domain}/${User}/outbox",
+  "publicKey": {
+        "@context": "https://www.w3.org/ns/activitystreams",
+        "type": "Key",
+        "id": "https://${Domain}/${User}#publickey",
+        "owner": "https://${Domain}/${User}/person",
+        "publicKeyPem": "${PublicKey}"
+    }
+}
