@@ -62,11 +62,11 @@ func CatchInbox(w http.ResponseWriter, r *http.Request, userID string) { // /${U
 		w.WriteHeader(400)
 		return
 	}
-	switch v := as.Object.(type) {
-	case string:
-		as.objectStr = v
-	default:
-		j, _ := json.Marshal(v)
+
+	var ok bool
+	as.objectStr, ok = as.Object.(string) // as.objectがstringにキャスト可能か
+	if !ok {                              // 出来なかったらObjectにキャスト
+		j, _ := json.Marshal(as.Object)
 		json.Unmarshal(j, &as.objectActivity)
 	}
 
