@@ -158,6 +158,8 @@ func Accept(userID, actor string, object []byte) error {
 	// Replace DummyData To ActivityObject
 	acceptBytes = bytes.Replace(acceptBytes, []byte("${Object}"), object, 1)
 
+	// 署名
+
 	// Sent Actor Inbox
 	res, err := HttpRequest("POST", inboxURL, bytes.NewReader(acceptBytes), map[string]string{})
 	if err != nil {

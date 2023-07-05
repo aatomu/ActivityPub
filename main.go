@@ -73,8 +73,9 @@ func main() {
 
 // ページ表示
 func RequestRouter(w http.ResponseWriter, r *http.Request) {
+	// 条件分岐用
 	router := strings.Split(strings.Replace(r.URL.Path, "/", "", 1), "/")
-	fmt.Println(router, len(router))
+
 	switch len(router) {
 	case 1: // Top/User Profile URL
 		userID := router[0]
