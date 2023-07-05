@@ -73,25 +73,18 @@ func CatchInbox(w http.ResponseWriter, r *http.Request, userID string) { // /${U
 	// Typeに合わせて処理
 	switch as.Type {
 	case "Follow":
-		// フォロワー 一覧 入手
-		followerFile := filepath.Join("./users", userID, "follower.json")
-		followerList, err := os.ReadFile(followerFile)
+		// 読み込み
+		follower, err := GetFollower(userID)
 		if err != nil {
 			log.Println(err)
 			w.WriteHeader(500)
 			return
 		}
-		var followers ActivityStreamOrderedCollection
-		err = json.Unmarshal(followerList, &followers)
-		if err != nil {
-			log.Println(err)
-			w.WriteHeader(500)
-			return
-		}
-		followers.OrderedItems = append(followers.OrderedItems, as.Actor)
-		followers.TotalItems = len(followers.OrderedItems)
-		followerList, _ = json.MarshalIndent(followers, "", "  ")
-		err = os.WriteFile(followerFile, followerList, 0666)
+		// 加工
+		follower.OrderedItems = append(follower.OrderedItems, as.Actor)
+		follower.TotalItems = len(follower.OrderedItems)
+		// 保存
+		err = SaveFollower(userID, follower)
 		if err != nil {
 			log.Println(err)
 			w.WriteHeader(500)
@@ -99,65 +92,42 @@ func CatchInbox(w http.ResponseWriter, r *http.Request, userID string) { // /${U
 		}
 
 		// 成功したのを通知
-		inboxURL, err := GetUserInbox(as.Actor)
-		if err != nil {
-			log.Println(err)
-			return
-		}
-		accept := ActivityStream{
-			Context: "https://www.w3.org/ns/activitystreams",
-			Type:    "Accept",
-			Actor:   userID,
-			Object:  "${Object}",
-		}
-		acceptBytes, err := json.Marshal(accept)
+		err = Accept(userID, as.Actor, request)
 		if err != nil {
 			log.Println(err)
 			w.WriteHeader(500)
+			return
 		}
-		acceptBytes = bytes.Replace(acceptBytes, []byte("${Object}"), request, 1)
-		fmt.Println(string(acceptBytes))
-		res, err := HttpRequest("POST", inboxURL, bytes.NewReader(acceptBytes), map[string]string{})
-		if err != nil {
-			log.Println(err)
-		}
-		fmt.Printf("%+v\n", res)
 		return
 
 	case "Undo":
 		switch as.objectActivity.Type {
 		case "Follow":
-			// フォロワーを保存
-			followerFile := filepath.Join("./users", userID, "follower.json")
-			followerList, err := os.ReadFile(followerFile)
+			// 読み込み
+			follower, err := GetFollower(userID)
 			if err != nil {
 				log.Println(err)
 				w.WriteHeader(500)
 				return
 			}
-			var followers ActivityStreamOrderedCollection
-			err = json.Unmarshal(followerList, &followers)
-			if err != nil {
-				log.Println(err)
-				w.WriteHeader(500)
-				return
-			}
-			newFollowers := []string{}
-			for _, v := range followers.OrderedItems {
+			// 加工
+			newFollower := []string{}
+			for _, v := range follower.OrderedItems {
 				if v == as.objectActivity.Actor {
 					continue
 				}
-				newFollowers = append(newFollowers, v)
+				newFollower = append(newFollower, v)
 			}
-			followers.OrderedItems = newFollowers
-			followers.TotalItems = len(followers.OrderedItems)
-			followerList, _ = json.MarshalIndent(followers, "", "  ")
-			err = os.WriteFile(followerFile, followerList, 0666)
+			follower.OrderedItems = newFollower
+			follower.TotalItems = len(follower.OrderedItems)
+			// 保存
+			err = SaveFollower(userID, follower)
 			if err != nil {
 				log.Println(err)
 				w.WriteHeader(500)
 				return
 			}
+
 			w.WriteHeader(200)
 			return
 		}
@@ -165,4 +135,34 @@ func CatchInbox(w http.ResponseWriter, r *http.Request, userID string) { // /${U
 }
 
 func CatchOutbox(w http.ResponseWriter, r *http.Request, userID string) { // /${User}/outbox
+}
+
+func Accept(userID, actor string, object []byte) error {
+	// Get Inbox URL
+	inboxURL, err := GetActorInbox(actor)
+	if err != nil {
+		return err
+	}
+
+	// Create Accept Object
+	accept := ActivityStream{
+		Context: "https://www.w3.org/ns/activitystreams",
+		Type:    "Accept",
+		Actor:   userID,
+		Object:  "${Object}",
+	}
+	acceptBytes, err := json.Marshal(accept)
+	if err != nil {
+		return err
+	}
+	// Replace DummyData To ActivityObject
+	acceptBytes = bytes.Replace(acceptBytes, []byte("${Object}"), object, 1)
+
+	// Sent Actor Inbox
+	res, err := HttpRequest("POST", inboxURL, bytes.NewReader(acceptBytes), map[string]string{})
+	if err != nil {
+		return err
+	}
+	fmt.Printf("%+v\n", res)
+	return nil
 }

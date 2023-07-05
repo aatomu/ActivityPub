@@ -123,7 +123,7 @@ func RequestRouter(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(404)
 }
 
-func GetUserInbox(actor string) (inboxURL string, erro error) {
+func GetActorInbox(actor string) (inboxURL string, erro error) {
 	// WebfingerURL
 	URL, _ := url.Parse(actor)
 
