@@ -48,6 +48,7 @@ func CatchInbox(w http.ResponseWriter, r *http.Request, userID string) { // /${U
 		w.WriteHeader(400)
 		return
 	}
+
 	// Body読み取り
 	request, err := io.ReadAll(r.Body)
 	if err != nil {
