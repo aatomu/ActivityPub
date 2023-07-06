@@ -120,17 +120,13 @@ func RequestRouter(w http.ResponseWriter, r *http.Request) {
 		}
 		switch router[1] {
 		case "person":
-			if noClient {
-				person, err := getPerson(userID)
-				if err != nil {
-					w.WriteHeader(500)
-					return
-				}
-				w.Header().Set("Content-Type", "application/activity+json")
-				w.Write(person)
+			person, err := getPerson(userID)
+			if err != nil {
+				w.WriteHeader(500)
 				return
 			}
-			w.WriteHeader(501)
+			w.Header().Set("Content-Type", "application/activity+json")
+			w.Write(person)
 			return
 
 		case "followers":
