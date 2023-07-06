@@ -61,7 +61,7 @@ func main() {
 
 	// アクセス先
 	http.HandleFunc("/.well-known/host-meta", ReturnHostMeta)  // to Webfinger URI
-	http.HandleFunc("/.well-known/webfinger", ReturnWebfinger) // return Actor Status
+	http.HandleFunc("/.well-known/webfinger", ReturnWebfinger) // return Actor Status URL
 	http.HandleFunc("/", RequestRouter)
 	// Web鯖 起動
 	go func() {
@@ -125,6 +125,17 @@ func RequestRouter(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", http.DetectContentType(attachment))
 			w.Write(attachment)
 			return
+		default:
+			if noClient {
+				person, err := getPerson(userID)
+				if err != nil {
+					w.WriteHeader(500)
+					return
+				}
+				w.Header().Set("Content-Type", "application/activity+json")
+				w.Write(person)
+				return
+			}
 		}
 
 		w.WriteHeader(501)
@@ -144,16 +155,6 @@ func RequestRouter(w http.ResponseWriter, r *http.Request) {
 		}
 
 		switch router[1] {
-		case "person":
-			person, err := getPerson(userID)
-			if err != nil {
-				w.WriteHeader(500)
-				return
-			}
-			w.Header().Set("Content-Type", "application/activity+json")
-			w.Write(person)
-			return
-
 		case "followers":
 			if noClient {
 				followers, err := getFollowers(userID)
@@ -336,7 +337,7 @@ func HttpGetRequest(method, userID, url string, body []byte, header map[string]s
 	req.Header.Set("digest", digest)
 
 	// signature header 作成
-	signatureKeyId := fmt.Sprintf("https://%s/%s/person#publickey", domain, userID)
+	signatureKeyId := fmt.Sprintf("https://%s/%s#publickey", domain, userID)
 	signatureHeaders := "(request-target) host date digest"
 
 	degestHeader := fmt.Sprintf("(request-target): %s %s\nhost: %s\ndate: %s", strings.ToLower(method), req.URL.Path, req.Host, requestDate)

@@ -1,7 +1,7 @@
 {
   "@context": "https://www.w3.org/ns/activitystreams",
   "type": "Person",
-  "id": "https://${Domain}/${User}/person",
+  "id": "https://${Domain}/${User}",
   "followers": "https://${Domain}/${User}/followers",
   "following": "https://${Domain}/${User}/following",
   "url": "https://${Domain}/${User}",
@@ -19,8 +19,8 @@
   "publicKey": {
         "@context": "https://www.w3.org/ns/activitystreams",
         "type": "Key",
-        "id": "https://${Domain}/${User}/person#publickey",
-        "owner": "https://${Domain}/${User}/person",
+        "id": "https://${Domain}/${User}#publickey",
+        "owner": "https://${Domain}/${User}",
         "publicKeyPem": "${PublicKey}"
     }
 }
