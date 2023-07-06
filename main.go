@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"crypto/rsa"
 	"crypto/x509"
+	"encoding/json"
 	"encoding/pem"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"net/url"
@@ -79,6 +81,14 @@ func RequestRouter(w http.ResponseWriter, r *http.Request) {
 	// 条件分岐用
 	router := strings.Split(strings.Replace(r.URL.Path, "/", "", 1), "/")
 
+	// 通常リクエストか
+	var noClient bool = false
+	for _, v := range r.Header.Values("Accept") {
+		if v == "application/activity+json" {
+			noClient = true
+		}
+	}
+
 	switch len(router) {
 	case 1: // Top/User Profile URL
 		userID := router[0]
@@ -95,9 +105,12 @@ func RequestRouter(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		w.WriteHeader(200)
+		w.WriteHeader(501)
 		return
 	case 2: // https://${Domain}/${User}/${Event}
+		if strings.Contains("abtomu adtomu aetomu actomu", router[0]) || router[0] == "aatomu" {
+			return
+		}
 		requestLog(r, "CatchEvent()")
 		userID := router[0]
 		// 存在するユーザか
@@ -107,25 +120,167 @@ func RequestRouter(w http.ResponseWriter, r *http.Request) {
 		}
 		switch router[1] {
 		case "person":
-			CatchPerson(w, r, userID)
+			if noClient {
+				person, err := getPerson(userID)
+				if err != nil {
+					w.WriteHeader(500)
+					return
+				}
+				w.Header().Set("Content-Type", "application/activity+json")
+				w.Write(person)
+				return
+			}
+			w.WriteHeader(501)
+			return
+
 		case "followers":
-			CatchFollowers(w, r, userID)
+			if noClient {
+				followers, err := getFollowers(userID)
+				if err != nil {
+					w.WriteHeader(500)
+					return
+				}
+				w.Header().Set("Content-Type", "application/activity+json")
+				w.Write(followers)
+				return
+			}
+			w.WriteHeader(501)
+			return
+
 		case "following":
-			CatchFollowing(w, r, userID)
+			if noClient {
+				follows, err := getFollows(userID)
+				if err != nil {
+					w.WriteHeader(500)
+					return
+				}
+				w.Header().Set("Content-Type", "application/activity+json")
+				w.Write(follows)
+				return
+			}
+			w.WriteHeader(501)
+			return
+
 		case "icon":
-			CatchIcon(w, r, userID)
+			icon, err := getIcon(userID)
+			if err != nil {
+				w.WriteHeader(404)
+				return
+			}
+			w.Header().Set("Content-Type", "image/png")
+			w.Write(icon)
+			return
+
 		case "inbox":
-			CatchInbox(w, r, userID)
+			// POST以外は対応しない
+			if r.Method != "POST" {
+				w.WriteHeader(400)
+				return
+			}
+
+			// Body読み取り
+			activity, err := io.ReadAll(r.Body)
+			if err != nil {
+				w.WriteHeader(400)
+			}
+			// Parse Json
+			var as ActivityStream
+			err = json.Unmarshal(activity, &as)
+			if err != nil {
+				log.Println(err)
+				w.WriteHeader(400)
+				return
+			}
+			var ok bool
+			as.objectStr, ok = as.Object.(string) // as.objectがstringにキャスト可能か
+			if !ok {                              // 出来なかったらObjectにキャスト
+				j, _ := json.Marshal(as.Object)
+				json.Unmarshal(j, &as.objectActivity)
+			}
+			log.Printf("InboxRequest: Type:\"%s\" Actor:\"%s\" Object:\"%s\"", as.Type, as.Actor, as.Object)
+
+			// 処理
+			// Typeに合わせて処理
+			switch as.Type {
+			case "Follow":
+				// 読み込み
+				follower, err := getFollowersObject(userID)
+				if err != nil {
+					log.Println(err)
+					w.WriteHeader(500)
+					return
+				}
+				// 加工
+				follower.OrderedItems = append(follower.OrderedItems, as.Actor)
+				follower.TotalItems = len(follower.OrderedItems)
+				// 保存
+				err = saveFollowers(userID, follower)
+				if err != nil {
+					log.Println(err)
+					w.WriteHeader(500)
+					return
+				}
+
+				// 成功したのを通知
+				res, err := Accept(userID, as.Actor, activity)
+				if err != nil {
+					log.Println(err)
+					w.WriteHeader(500)
+					return
+				}
+				fmt.Printf("%+v", res)
+				return
+
+			case "Undo":
+				switch as.objectActivity.Type {
+				case "Follow":
+					// 読み込み
+					follower, err := getFollowersObject(userID)
+					if err != nil {
+						log.Println(err)
+						w.WriteHeader(500)
+						return
+					}
+					// 加工
+					newFollower := []string{}
+					for _, v := range follower.OrderedItems {
+						if v == as.objectActivity.Actor {
+							continue
+						}
+						newFollower = append(newFollower, v)
+					}
+					follower.OrderedItems = newFollower
+					follower.TotalItems = len(follower.OrderedItems)
+					// 保存
+					err = saveFollowers(userID, follower)
+					if err != nil {
+						log.Println(err)
+						w.WriteHeader(500)
+						return
+					}
+
+					w.WriteHeader(200)
+					return
+				}
+			}
+
 		case "outbox":
-			CatchOutbox(w, r, userID)
+			outbox, err := getOutbox(userID)
+			if err != nil {
+				w.WriteHeader(404)
+				return
+			}
+			w.Header().Set("Content-Type", "image/png")
+			w.Write(outbox)
+			return
 		}
+
 	default: // UnknownURL
 		if router[0] == "assets" {
 			ReturnAsset(w, r, router[1:])
 		}
 		w.WriteHeader(400)
 		return
-
 	}
 
 	w.WriteHeader(404)
@@ -183,5 +338,5 @@ func HttpGetRequest(method, userID, url string, body []byte, header map[string]s
 
 func requestLog(r *http.Request, catch string) {
 	requestURL, _ := url.PathUnescape(r.URL.RequestURI())
-	log.Printf("Access:\"%s\" Catch:\"%s\" Method:\"%s\" URL:\"%s\" Content-Type:\"%s\"", r.RemoteAddr, catch, r.Method, requestURL, r.Header.Get("Content-Type"))
+	log.Printf("Access:\"%s\" Catch:\"%s\" Method:\"%s\" URL:\"%s\" Accept:\"%s\" Content-Type:\"%s\"", r.RemoteAddr, catch, r.Method, requestURL, r.Header.Get("Accept"), r.Header.Get("Content-Type"))
 }

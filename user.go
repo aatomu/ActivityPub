@@ -12,7 +12,6 @@ import (
 	"encoding/pem"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -20,139 +19,59 @@ import (
 	"time"
 )
 
-func CatchPerson(w http.ResponseWriter, r *http.Request, userID string) { // /${User}/person
+func getPerson(userID string) (person []byte, err error) {
 	pubKey, err := os.ReadFile(filepath.Join("./users/", userID, "publickey.pem"))
 	if err != nil {
-		fmt.Println(err)
-		w.WriteHeader(500)
+		return
 	}
 	pubKey = bytes.ReplaceAll(pubKey, []byte("\n"), []byte("\\n"))
 
-	person := bytes.ReplaceAll(personTemplate, []byte("${User}"), []byte(userID))
+	person = bytes.ReplaceAll(personTemplate, []byte("${User}"), []byte(userID))
 	person = bytes.Replace(person, []byte("${PublicKey}"), pubKey, 1)
-
-	w.Header().Set("Content-Type", "application/activity+json")
-	w.Write(person)
+	return
 }
 
-func CatchFollowers(w http.ResponseWriter, r *http.Request, userID string) { // /${User}/followers
+func getFollowers(userID string) (followers []byte, err error) {
+	return os.ReadFile(filepath.Join("./users", userID, "follower.json"))
 }
 
-func CatchFollowing(w http.ResponseWriter, r *http.Request, userID string) { // /${User}/following
-}
-
-func CatchIcon(w http.ResponseWriter, r *http.Request, userID string) { // /${User}/icon
-	f, err := os.ReadFile(filepath.Join("./users", userID, "icon.png"))
+func getFollowersObject(userID string) (follower ActivityStreamOrderedCollection, err error) {
+	followers, err := getFollowers(userID)
 	if err != nil {
-		w.WriteHeader(404)
-		return
-	}
-	w.Header().Set("Content-Type", "image/png")
-	w.Write(f)
-}
-
-func CatchInbox(w http.ResponseWriter, r *http.Request, userID string) { // /${User}/inbox
-	// POST以外は対応しない
-	if r.Method != "POST" {
-		w.WriteHeader(400)
 		return
 	}
 
-	// Body読み取り
-	request, err := io.ReadAll(r.Body)
+	err = json.Unmarshal(followers, &follower)
 	if err != nil {
-		w.WriteHeader(400)
-	}
-	log.Println("InboxRequest:", string(request))
-
-	// Jsonにパーズ
-	var as ActivityStream
-	err = json.Unmarshal(request, &as)
-	if err != nil {
-		log.Println(err)
-		w.WriteHeader(400)
 		return
 	}
-
-	var ok bool
-	as.objectStr, ok = as.Object.(string) // as.objectがstringにキャスト可能か
-	if !ok {                              // 出来なかったらObjectにキャスト
-		j, _ := json.Marshal(as.Object)
-		json.Unmarshal(j, &as.objectActivity)
-	}
-
-	// Typeに合わせて処理
-	switch as.Type {
-	case "Follow":
-		// 読み込み
-		follower, err := GetFollower(userID)
-		if err != nil {
-			log.Println(err)
-			w.WriteHeader(500)
-			return
-		}
-		// 加工
-		follower.OrderedItems = append(follower.OrderedItems, as.Actor)
-		follower.TotalItems = len(follower.OrderedItems)
-		// 保存
-		err = SaveFollower(userID, follower)
-		if err != nil {
-			log.Println(err)
-			w.WriteHeader(500)
-			return
-		}
-
-		// 成功したのを通知
-		err = Accept(userID, as.Actor, request)
-		if err != nil {
-			log.Println(err)
-			w.WriteHeader(500)
-			return
-		}
-		return
-
-	case "Undo":
-		switch as.objectActivity.Type {
-		case "Follow":
-			// 読み込み
-			follower, err := GetFollower(userID)
-			if err != nil {
-				log.Println(err)
-				w.WriteHeader(500)
-				return
-			}
-			// 加工
-			newFollower := []string{}
-			for _, v := range follower.OrderedItems {
-				if v == as.objectActivity.Actor {
-					continue
-				}
-				newFollower = append(newFollower, v)
-			}
-			follower.OrderedItems = newFollower
-			follower.TotalItems = len(follower.OrderedItems)
-			// 保存
-			err = SaveFollower(userID, follower)
-			if err != nil {
-				log.Println(err)
-				w.WriteHeader(500)
-				return
-			}
-
-			w.WriteHeader(200)
-			return
-		}
-	}
+	return
 }
 
-func CatchOutbox(w http.ResponseWriter, r *http.Request, userID string) { // /${User}/outbox
+func saveFollowers(userID string, follower ActivityStreamOrderedCollection) error {
+	followerFile := filepath.Join("./users", userID, "follower.json")
+
+	followerList, _ := json.MarshalIndent(follower, "", "  ")
+	return os.WriteFile(followerFile, followerList, 0666)
 }
 
-func Accept(userID, actor string, object []byte) error {
+func getFollows(userID string) (follows []byte, err error) {
+	return os.ReadFile(filepath.Join("./users", userID, "follows.json"))
+}
+
+func getIcon(userID string) (icon []byte, err error) {
+	return os.ReadFile(filepath.Join("./users", userID, "icon.png"))
+}
+
+func getOutbox(userID string) (icon []byte, err error) {
+	return os.ReadFile(filepath.Join("./users", userID, "outbox.json"))
+}
+
+func Accept(userID, actor string, object []byte) (res *http.Response, err error) {
 	// Get Inbox URL
 	inboxURL, err := getActorInbox(userID, actor)
 	if err != nil {
-		return err
+		return
 	}
 
 	// Create Accept Object
@@ -164,7 +83,7 @@ func Accept(userID, actor string, object []byte) error {
 	}
 	acceptBytes, err := json.Marshal(accept)
 	if err != nil {
-		return err
+		return
 	}
 	// Replace DummyData To ActivityObject
 	acceptBytes = bytes.Replace(acceptBytes, []byte("${Object}"), object, 1)
@@ -179,13 +98,13 @@ func Accept(userID, actor string, object []byte) error {
 	// 秘密鍵 読み込み
 	privateKeyBytes, err := os.ReadFile(filepath.Join("./users", userID, "privatekey.pem"))
 	if err != nil {
-		return err
+		return
 	}
 	privateKeyBlock, _ := pem.Decode(privateKeyBytes)
 
 	privateKeyAny, err := x509.ParsePKCS8PrivateKey(privateKeyBlock.Bytes)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	privateKey := privateKeyAny.(*rsa.PrivateKey)
 
@@ -200,17 +119,13 @@ func Accept(userID, actor string, object []byte) error {
 	degestHeader := fmt.Sprintf("(request-target): post %s\nhost: %s\ndate: %s\ndigest: %s", req.URL.Path, req.Host, requestDate, digest)
 	signatureData, err := createSignature([]byte(degestHeader), privateKey)
 	if err != nil {
-		return err
+		return
 	}
 	req.Header.Set("signature", fmt.Sprintf("keyId=\"%s\",algorithm=\"rsa-sha256\",headers=\"%s\",signature=\"%s\"", signatureKeyId, signatureHeaders, signatureData))
 
 	// Sent Actor Inbox
 	client := new(http.Client)
-	_, err = client.Do(req)
-	if err != nil {
-		return err
-	}
-	return nil
+	return client.Do(req)
 }
 
 func getActorInbox(userID, actor string) (inboxURL string, erro error) {
