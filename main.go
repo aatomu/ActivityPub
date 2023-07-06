@@ -26,7 +26,7 @@ var (
 	owener            = os.Args[3]
 	hostMetaTemplate  []byte
 	webfingerTemplate []byte
-	personTemplate    []byte
+	// personTemplate    []byte
 )
 
 func init() {
@@ -44,11 +44,11 @@ func init() {
 	webfingerTemplate = bytes.ReplaceAll(b, []byte("${Domain}"), []byte(domain))
 
 	// ActivityPub Person Template
-	b, err = os.ReadFile("./assets/person.json")
-	if err != nil {
-		panic(err)
-	}
-	personTemplate = bytes.ReplaceAll(b, []byte("${Domain}"), []byte(domain))
+	// b, err = os.ReadFile("./assets/person.json")
+	// if err != nil {
+	// 	panic(err)
+	// }
+	// personTemplate = bytes.ReplaceAll(b, []byte("${Domain}"), []byte(domain))
 
 }
 
@@ -355,5 +355,9 @@ func HttpGetRequest(method, userID, url string, body []byte, header map[string]s
 
 func requestLog(r *http.Request, catch string) {
 	requestURL, _ := url.PathUnescape(r.URL.RequestURI())
-	log.Printf("Access:\"%s\" Catch:\"%s\" Method:\"%s\" URL:\"%s\" Accept:\"%s\" Content-Type:\"%s\"", r.RemoteAddr, catch, r.Method, requestURL, r.Header.Get("Accept"), r.Header.Get("Content-Type"))
+	accept := r.Header.Get("Accept")
+	if len(strings.Split(accept, "")) > 40 {
+		accept = strings.Join(strings.Split(accept, "")[:40], "") + "..."
+	}
+	log.Printf("Access:\"%s\" Catch:\"%s\" Method:\"%s\" URL:\"%s\" Accept:\"%s\" Content-Type:\"%s\"", r.RemoteAddr, catch, r.Method, requestURL, accept, r.Header.Get("Content-Type"))
 }
