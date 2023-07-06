@@ -112,12 +112,14 @@ func RequestRouter(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		requestLog(r, "CatchEvent()")
-		userID := router[0]
+
 		// 存在するユーザか
+		userID := router[0]
 		if _, err := os.Stat(filepath.Join("./users", userID)); err != nil {
 			w.WriteHeader(404)
 			return
 		}
+
 		switch router[1] {
 		case "person":
 			person, err := getPerson(userID)
@@ -194,7 +196,6 @@ func RequestRouter(w http.ResponseWriter, r *http.Request) {
 				json.Unmarshal(j, &as.objectActivity)
 			}
 			log.Printf("InboxRequest: Type:\"%s\" Actor:\"%s\" Object:\"%s\"", as.Type, as.Actor, as.Object)
-
 			// 処理
 			// Typeに合わせて処理
 			switch as.Type {
@@ -217,14 +218,16 @@ func RequestRouter(w http.ResponseWriter, r *http.Request) {
 					return
 				}
 
+				w.WriteHeader(202)
 				// 成功したのを通知
 				res, err := Accept(userID, as.Actor, activity)
 				if err != nil {
 					log.Println(err)
-					w.WriteHeader(500)
 					return
 				}
-				fmt.Printf("%+v", res)
+				if res.StatusCode >= 400 && res.StatusCode < 600 {
+					log.Println("Failed Accept")
+				}
 				return
 
 			case "Undo":

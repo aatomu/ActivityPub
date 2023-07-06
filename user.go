@@ -78,7 +78,7 @@ func Accept(userID, actor string, object []byte) (res *http.Response, err error)
 	accept := ActivityStream{
 		Context: "https://www.w3.org/ns/activitystreams",
 		Type:    "Accept",
-		Actor:   userID,
+		Actor:   fmt.Sprintf("https://%s/%s/person", domain, userID),
 		Object:  "${Object}",
 	}
 	acceptBytes, err := json.Marshal(accept)
@@ -86,7 +86,7 @@ func Accept(userID, actor string, object []byte) (res *http.Response, err error)
 		return
 	}
 	// Replace DummyData To ActivityObject
-	acceptBytes = bytes.Replace(acceptBytes, []byte("${Object}"), object, 1)
+	acceptBytes = bytes.Replace(acceptBytes, []byte("\"${Object}\""), object, 1)
 
 	// Http Request 作成
 	req, _ := http.NewRequest("POST", inboxURL, bytes.NewReader(acceptBytes))
