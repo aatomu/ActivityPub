@@ -82,12 +82,7 @@ func RequestRouter(w http.ResponseWriter, r *http.Request) {
 	router := strings.Split(strings.Replace(r.URL.Path, "/", "", 1), "/")
 
 	// 通常リクエストか
-	var noClient bool = false
-	for _, v := range r.Header.Values("Accept") {
-		if v == "application/activity+json" {
-			noClient = true
-		}
-	}
+	noClient := strings.Contains(r.Header.Get("Accept"), "application/activity+json")
 
 	switch len(router) {
 	case 1: // Top/User Profile URL
@@ -95,7 +90,6 @@ func RequestRouter(w http.ResponseWriter, r *http.Request) {
 		if userID == "" { // https://${Domain}/
 			requestLog(r, "ReturnTop()")
 			ReturnTop(w, r)
-			w.WriteHeader(200)
 			return
 		}
 		requestLog(r, "ReturnUserData()") // https://${Domain}/${User}?
@@ -105,7 +99,7 @@ func RequestRouter(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		switch {
+		switch { // Query Switch
 		case r.URL.Query().Has("note"): // Note
 			note, err := getNote(userID, r.URL.Query().Get("note"))
 			if err != nil {
@@ -125,20 +119,21 @@ func RequestRouter(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", http.DetectContentType(attachment))
 			w.Write(attachment)
 			return
-		default:
-			if noClient {
-				person, err := getPerson(userID)
-				if err != nil {
-					w.WriteHeader(500)
-					return
-				}
-				w.Header().Set("Content-Type", "application/activity+json")
-				w.Write(person)
-				return
-			}
 		}
 
-		w.WriteHeader(501)
+		if noClient { // Get User Person
+			person, err := getPerson(userID)
+			if err != nil {
+				fmt.Println(err)
+				w.WriteHeader(500)
+				return
+			}
+			w.Header().Set("Content-Type", "application/activity+json")
+			w.Write(person)
+			return
+		}
+
+		ReturnUserProfile(w, r, userID)
 		return
 
 	case 2: // https://${Domain}/${User}/${Event}
@@ -302,7 +297,6 @@ func RequestRouter(w http.ResponseWriter, r *http.Request) {
 		if router[0] == "assets" {
 			ReturnAsset(w, r, router[1:])
 		}
-		w.WriteHeader(400)
 		return
 	}
 

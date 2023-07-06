@@ -20,6 +20,10 @@ func ReturnTop(w http.ResponseWriter, r *http.Request) {
 	w.Write(f)
 }
 
+func ReturnUserProfile(w http.ResponseWriter, r *http.Request, userID string) {
+
+}
+
 func ReturnAsset(w http.ResponseWriter, r *http.Request, path []string) {
 	requestLog(r, "ReturnAsset()")
 	root := filepath.Join(path...)

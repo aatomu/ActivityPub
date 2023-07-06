@@ -20,15 +20,7 @@ import (
 )
 
 func getPerson(userID string) (person []byte, err error) {
-	pubKey, err := os.ReadFile(filepath.Join("./users/", userID, "publickey.pem"))
-	if err != nil {
-		return
-	}
-	pubKey = bytes.ReplaceAll(pubKey, []byte("\n"), []byte("\\n"))
-
-	person = bytes.ReplaceAll(personTemplate, []byte("${User}"), []byte(userID))
-	person = bytes.Replace(person, []byte("${PublicKey}"), pubKey, 1)
-	return
+	return os.ReadFile(filepath.Join("./users/", userID, "person.json"))
 }
 
 func getFollowers(userID string) (followers []byte, err error) {
