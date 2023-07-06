@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+  <title>Top / SAP</title>
+
+  <meta charset="utf-8">
+  <meta name="theme-color" content="#1E90FF">
+
+  <meta property="og:image" content="https://${Domain}/assets/image/favicon.png" />
+  <meta property="og:title" content="Top / SAP" />
+  <meta property="og:site_name" content="Simple Activiy Pub" />
+  <meta property="og:description" content="Twitter Likeな Mastdon/Misskey 対応 SNS" />
+
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:site" content="Owner ${Owner}" />
+  <meta name="twitter:creator" content="Owner ${Owner}" />
+
+  <link href="/assets/image/favicon.png" rel="icon">
+  <link href="/assets/css/contains.css" rel="stylesheet" />
+
+</head>
+
+<body>
+  <div class="ui-parent">
+    <div class="ui-left">
+      <div class="ui-left-page">🏠</div>
+      <div class="ui-left-page">🔔</div>
+      <div class="ui-left-page">✉</div>
+      <div class="ui-left-page">👍</div>
+      <div class="ui-left-page">aaaa</div>
+    </div>
+    <div class="ui-main">
+      <div class="ui-main-header">
+        <div class="ui-main-header-tab select-tab">Global</div>
+        <div class="ui-main-header-tab">Local</div>
+        <div class="ui-main-header-tab">Follow</div>
+      </div>
+    </div>
+    <div class="ui-right">aaa</div>
+  </div>
+</body>
+
+<script id="init_script">
+  const Body = document.getElementById("body")
+  const Topic = document.getElementById("topic")
+  const InitScript = document.getElementById("init_script")
+
+  window.addEventListener("load", async function () {
+    // 削除
+    InitScript.remove()
+  })
+</script>
+
+</html>

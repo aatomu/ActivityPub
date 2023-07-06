@@ -1,0 +1,91 @@
+body {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+.ui-parent {
+  display: flex;
+  justify-content: center;
+  flex-wrap: nowrap;
+  flex-direction: row;
+}
+
+
+.ui-left {
+  width: 300px;
+  height: 100vh;
+
+  padding-top: 50px;
+}
+
+.ui-left-page {
+  background-color: lightskyblue;
+
+  height: 50px;
+  width: calc(100% -10px);
+  margin: 5px 10px 5px 0;
+
+  border-radius: 25px;
+  box-sizing:border-box;
+
+  padding: 5px;
+  font-size: 30px;
+}
+
+.ui-left-page {
+  background-color: lightskyblue;
+
+  height: 50px;
+  width: calc(100% -10px);
+  margin: 5px 10px 5px 0;
+
+  border-radius: 25px;
+  box-sizing:border-box;
+
+  padding: 5px;
+  font-size: 30px;
+}
+
+.ui-main {
+  width: 600px;
+  height: 100vh;
+
+  border-width: 0 3px;
+  border-color: lightgray;
+  border-style: solid;
+}
+
+.ui-main-header {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+
+  height: 50px;
+  width: 100%;
+
+  border-width: 0 0 4px 0;
+  border-color: lightgray;
+  border-style: solid;
+
+  text-align: center;
+  font-size: 20px;
+}
+
+.ui-main-header-tab {
+  height: 100%;
+  width: 100%;
+}
+
+.ui-main-header-tab.select-tab {
+  background-color: #f0f0f0;
+}
+
+.ui-main-header-tab:hover {
+  background-color: lightgray;
+}
+
+.ui-right {
+  width: 300px;
+  height: 100vh;
+}
+

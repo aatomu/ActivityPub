@@ -21,6 +21,7 @@ import (
 var (
 	listenPort        = os.Args[1]
 	domain            = os.Args[2]
+	owener            = os.Args[3]
 	hostMetaTemplate  []byte
 	webfingerTemplate []byte
 	personTemplate    []byte
@@ -81,12 +82,13 @@ func RequestRouter(w http.ResponseWriter, r *http.Request) {
 	switch len(router) {
 	case 1: // Top/User Profile URL
 		userID := router[0]
-		if userID == "" {
+		if userID == "" { // https://${Domain}/
 			requestLog(r, "ReturnTop()")
+			ReturnTop(w, r)
 			w.WriteHeader(200)
 			return
 		}
-		requestLog(r, "ReturnUserProfile()")
+		requestLog(r, "ReturnUserProfile()") // https://${Domain}/${User}
 		// 存在するユーザか
 		if _, err := os.Stat(filepath.Join("./users", userID)); err != nil {
 			w.WriteHeader(404)
@@ -118,6 +120,9 @@ func RequestRouter(w http.ResponseWriter, r *http.Request) {
 			CatchOutbox(w, r, userID)
 		}
 	default: // UnknownURL
+		if router[0] == "assets" {
+			ReturnAsset(w, r, router[1:])
+		}
 		w.WriteHeader(400)
 		return
 
