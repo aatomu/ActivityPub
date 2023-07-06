@@ -12,7 +12,7 @@
     "mediaType": "image/png",
     "url": "https://${Domain}/${User}/icon"
   },
-  "summary": "@${User} using on ${Domain}",
+  "summary": "@${User} is Develop Account On ${Domain}",
   "published": "2023-07-04T00:00:00+09:00",
   "inbox": "https://${Domain}/${User}/inbox",
   "outbox": "https://${Domain}/${User}/outbox",

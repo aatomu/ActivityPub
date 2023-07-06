@@ -98,15 +98,38 @@ func RequestRouter(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(200)
 			return
 		}
-		requestLog(r, "ReturnUserProfile()") // https://${Domain}/${User}
+		requestLog(r, "ReturnUserData()") // https://${Domain}/${User}?
 		// 存在するユーザか
 		if _, err := os.Stat(filepath.Join("./users", userID)); err != nil {
 			w.WriteHeader(404)
 			return
 		}
 
+		switch {
+		case r.URL.Query().Has("note"): // Note
+			note, err := getNote(userID, r.URL.Query().Get("note"))
+			if err != nil {
+				w.WriteHeader(500)
+				return
+			}
+			w.Header().Set("Content-Type", "application/activity+json")
+			w.Write(note)
+			return
+
+		case r.URL.Query().Has("attachment"): // Attachment
+			attachment, err := getAttachment(userID, r.URL.Query().Get("attachment"))
+			if err != nil {
+				w.WriteHeader(500)
+				return
+			}
+			w.Header().Set("Content-Type", http.DetectContentType(attachment))
+			w.Write(attachment)
+			return
+		}
+
 		w.WriteHeader(501)
 		return
+
 	case 2: // https://${Domain}/${User}/${Event}
 		if strings.Contains("abtomu adtomu aetomu actomu", router[0]) || router[0] == "aatomu" {
 			return
