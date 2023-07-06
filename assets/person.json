@@ -19,7 +19,7 @@
   "publicKey": {
         "@context": "https://www.w3.org/ns/activitystreams",
         "type": "Key",
-        "id": "https://${Domain}/${User}#publickey",
+        "id": "https://${Domain}/${User}/person#publickey",
         "owner": "https://${Domain}/${User}/person",
         "publicKeyPem": "${PublicKey}"
     }

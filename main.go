@@ -2,9 +2,10 @@ package main
 
 import (
 	"bytes"
-	"encoding/json"
+	"crypto/rsa"
+	"crypto/x509"
+	"encoding/pem"
 	"fmt"
-	"io"
 	"log"
 	"net/http"
 	"net/url"
@@ -12,6 +13,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/atomu21263/atomicgo/utils"
 )
@@ -124,56 +126,53 @@ func RequestRouter(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(404)
 }
 
-func GetActorInbox(actor string) (inboxURL string, erro error) {
-	// WebfingerURL
-	URL, _ := url.Parse(actor)
-
-	requestURL := fmt.Sprintf("%s://%s/.well-known/webfinger?resource=%s", URL.Scheme, URL.Host, actor)
-	// Get Webfinger
-	resourceResponse, err := HttpRequest("GET", requestURL, nil, map[string]string{})
-	if err != nil {
-		return "", err
-	}
-	resourceBytes, err := io.ReadAll(resourceResponse.Body)
-	if err != nil {
-		return "", err
-	}
-	var resource Resource
-	json.Unmarshal(resourceBytes, &resource)
-	if err != nil {
-		return "", err
-	}
-	var selfURL, requestType string
-	for _, v := range resource.Links {
-		if v.Rel == "self" {
-			selfURL = v.Href
-			requestType = v.Type
-		}
-	}
-	// Get Person
-	personResponse, err := HttpRequest("GET", selfURL, nil, map[string]string{"accept": requestType})
-	if err != nil {
-		return "", err
-	}
-	personBytes, err := io.ReadAll(personResponse.Body)
-	if err != nil {
-		return "", err
-	}
-	var person Person
-	json.Unmarshal(personBytes, &person)
-	if err != nil {
-		return "", err
-	}
-	return person.Inbox, nil
-}
-
-func HttpRequest(method, url string, body io.Reader, header map[string]string) (*http.Response, error) {
-	req, _ := http.NewRequest(method, url, nil)
-	req.Header.Set("user-agent", "curl/7.81.0")
+func HttpGetRequest(method, userID, url string, body []byte, header map[string]string) (*http.Response, error) {
+	// Http Request 作成
+	req, _ := http.NewRequest(method, url, bytes.NewReader(body))
+	req.Header.Set("user-agent", "original/1.1.1")
+	requestDate := time.Now().UTC().Format(http.TimeFormat)
+	req.Header.Set("date", requestDate)
 	for k, v := range header {
 		req.Header.Set(k, v)
 	}
+
+	// 秘密鍵 読み込み
+	privateKeyBytes, err := os.ReadFile(filepath.Join("./users", userID, "privatekey.pem"))
+	if err != nil {
+		return nil, err
+	}
+	privateKeyBlock, _ := pem.Decode(privateKeyBytes)
+
+	privateKeyAny, err := x509.ParsePKCS8PrivateKey(privateKeyBlock.Bytes)
+	if err != nil {
+		return nil, err
+	}
+	privateKey := privateKeyAny.(*rsa.PrivateKey)
+
+	// digest header 生成
+	digest := createDigest(body)
+	req.Header.Set("digest", digest)
+
+	// signature header 作成
+	signatureKeyId := fmt.Sprintf("https://%s/%s/person#publickey", domain, userID)
+	signatureHeaders := "(request-target) host date digest"
+
+	degestHeader := fmt.Sprintf("(request-target): %s %s\nhost: %s\ndate: %s", strings.ToLower(method), req.URL.Path, req.Host, requestDate)
+	if method == "POST" {
+		degestHeader += fmt.Sprintf("\ndigest: %s", digest)
+	}
+	signatureData, err := createSignature([]byte(degestHeader), privateKey)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("signature", fmt.Sprintf("keyId=\"%s\",algorithm=\"rsa-sha256\",headers=\"%s\",signature=\"%s\"", signatureKeyId, signatureHeaders, signatureData))
+
+	// Sent Actor Inbox
 	client := new(http.Client)
+	_, err = client.Do(req)
+	if err != nil {
+		return nil, err
+	}
 	return client.Do(req)
 }
 

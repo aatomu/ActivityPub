@@ -14,7 +14,12 @@ Noteの返答,FollowのAccept,Followerへの転送まで
 ActivityPubの定義(和訳版?)
 * https://webfinger.net/lookup/  
 Webfingerの確認したサイト
-
+* https://qiita.com/keitaj/items/00aede60e64e8eebbb8a
+golangでの鍵署名
+* https://asnokaze.hatenablog.com/entry/2020/01/07/012014
+Signature(署名)の方法
+* https://dinochiesa.github.io/httpsig/
+署名のテスター
 
 ## Webfinger
 Webfingerは最初に`https://${Domain}/.well-known/host-meta`に問い合わせる  
