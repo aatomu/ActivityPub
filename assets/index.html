@@ -27,39 +27,31 @@
       <div class="head">
         Action
       </div>
-      <div class="left-content content-box">
-        <span>🏠</span>
-        <span>Home</span>
+      <div class="action">
+        🏠Home
       </div>
-      <div class="left-content content-box">
-        <span>🔔</span>
-        <span>Notice</span>
+      <div class="action">
+        🔔Notice
       </div>
-      <div class="left-content content-box">
-        <span>👪</span>
-        <span>Profile</span>
+      <div class="action">
+        👪Profile
       </div>
-      <div class="left-content-in content-box">
-        <div class="left-content">
-          <span>🔍</span>
-          <span>Search</span>
-        </div>
-        <input type="text" class="search-box"></span>
+      <div class="action">
+        <span>🔍</span><input type="text" class="search-box">
       </div>
-      <div class="left-content-in content-box">
-        <div class="left-content">
-          <span>📓</span>
-          <span>Note</span>
-        </div>
-        <form>
-          <textarea type="text" class="note-box" name="text"></textarea></span>
-          <div class="left-content">
-            <input type="file" accept="image/*,video/*" name="attachment" style="display: none;">
-            <input type="button" value="画像/動画">
-            <imput type="submit" value="送信">
-          </div>
+      <div class="action">
+        <form class="note-area">
+          <textarea type="text" class="note-text" name="text"></textarea>
+          <label class="note-attachment">
+            <input type="file" accept="image/*,video/*" name="attachment" style="display: none;" multiple
+              id="attachment">画像/動画
+          </label>
+          <soan id="attachment-error"></soan>
+          <br>
+          <input type="submit" value="送信">
         </form>
       </div>
+      <div id="attachment-preview"></div>
     </div>
     <div class="right">
       <div class="head">
@@ -70,11 +62,42 @@
 </body>
 
 <script id="init_script">
-  const Body = document.getElementById("body")
-  const Topic = document.getElementById("topic")
+  // const Body = document.getElementById("body")
   const InitScript = document.getElementById("init_script")
 
   window.addEventListener("load", async function () {
+    const attach = document.getElementById("attachment")
+    const attachErr = document.getElementById("attachment-error")
+
+    attach.addEventListener("change", function (e) {
+      attachErr.innerText = ""
+      const files = attach.files
+      if (files.length > 4) {
+        e.preventDefault()
+        document.getElementById("attachment-error").innerText = "Error: Not Accept Files.len >4"
+      }
+
+      const preview = document.getElementById("attachment-preview");
+      while (preview.firstChild) {
+        preview.removeChild(preview.firstChild);
+      }
+
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i]
+        if (file.type.startsWith("image")) {
+          var img = document.createElement("img");
+          img.setAttribute("src", URL.createObjectURL(file));
+          img.classList.add("note-preview")
+          preview.appendChild(img);
+        }
+        if (file.type.startsWith("video")) {
+          var video = document.createElement("video");
+          video.setAttribute("src", URL.createObjectURL(file));
+          video.classList.add("note-preview")
+          preview.appendChild(video);
+        }
+      }
+    })
     // 削除
     InitScript.remove()
   })
