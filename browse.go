@@ -3,8 +3,10 @@ package main
 import (
 	"bytes"
 	"crypto/sha256"
+	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"mime"
 	"net/http"
 	"os"
@@ -94,11 +96,37 @@ func ReturnTop(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if noteText != "" || len(noteAttachment) > 0 {
-			_, err := createNote(userID, noteText, noteReply, noteSensitive, noteAttachment)
+			noteBytes, err := createNote(userID, noteText, noteReply, noteSensitive, noteAttachment)
 			if err != nil {
 				w.WriteHeader(http.StatusInternalServerError)
 			}
-			fmt.Println("ok!")
+
+			create := ActivityStream{
+				Context: "https://www.w3.org/ns/activitystreams",
+				Type:    "Create",
+				Object:  "${Object}",
+			}
+			createBytes, err := json.Marshal(create)
+			if err != nil {
+				log.Println(err)
+				return
+			}
+			createBytes = bytes.Replace(createBytes, []byte("\"${Object}\""), noteBytes, 1)
+
+			followers, err := getFollowersObject(userID)
+			if err != nil {
+				log.Println(err)
+				return
+			}
+			for _, actorID := range followers.OrderedItems {
+				url, err := getActorInbox(userID, actorID)
+				if err != nil {
+					continue
+				}
+
+				HttpRequest("POST", userID, url, createBytes, map[string]string{"Content-Type": "application/activity+json"})
+			}
+
 		}
 	}
 
