@@ -40,10 +40,12 @@
         <span>🔍</span><input type="text" class="search-box">
       </div>
       <div class="action">
-        <form class="note-area">
-          <textarea type="text" class="note-text" name="text"></textarea>
+        <form method="post" enctype="multipart/form-data" class="note-area" onsubmit="window.location.href = window.location.href">
+          <textarea class="note-text" name="note" placeholder="Note"></textarea>
+          <input type="text" class="note-reply" name="reply" placeholder="ReplyURL"><br>
+          <label><input type="checkbox" class="note-sensitive" name="sensitive">センシティブ</label><br>
           <label class="note-attachment">
-            <input type="file" accept="image/*,video/*" name="attachment" style="display: none;" multiple
+            <input type="file" accept="image/*,video/*" name="attachments" style="display: none;" multiple
               id="attachment">画像/動画
           </label>
           <soan id="attachment-error"></soan>

@@ -4,9 +4,12 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"fmt"
+	"io"
+	"mime"
 	"net/http"
 	"os"
 	"path/filepath"
+	"time"
 )
 
 func ReturnTop(w http.ResponseWriter, r *http.Request) {
@@ -32,21 +35,71 @@ func ReturnTop(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}
-
 	if _, err := os.Stat(filepath.Join("./users", userID)); err != nil { // is EnableUser
-		w.WriteHeader(http.StatusForbidden)
+		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}
-
 	passwordBytes, err := os.ReadFile(filepath.Join("./users", userID, "password.sha256"))
 	if err != nil {
-		w.WriteHeader(http.StatusForbidden)
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+	if string(passwordBytes) != fmt.Sprintf("%x", sha256.Sum256([]byte(password))) {
+		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}
 
-	if string(passwordBytes) != fmt.Sprintf("%x", sha256.Sum256([]byte(password))) {
-		w.WriteHeader(http.StatusForbidden)
-		return
+	if r.Method == http.MethodPost {
+		r.ParseMultipartForm(32 << 20)
+
+		var noteText, noteReply string
+
+		if len(r.MultipartForm.Value["note"]) > 2 {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		if len(r.MultipartForm.Value["note"]) == 1 {
+			noteText = r.MultipartForm.Value["note"][0]
+		}
+
+		if len(r.MultipartForm.Value["reply"]) > 2 {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		if len(r.MultipartForm.Value["reply"]) == 1 {
+			noteReply = r.MultipartForm.Value["reply"][0]
+		}
+		fmt.Println(r.MultipartForm)
+		noteSensitive := r.Form.Get("sensitive") == "on"
+
+		noteAttachment := []NoteAttachment{}
+		for _, f := range r.MultipartForm.File["attachments"] { // ファイル
+			// ファイル読み込み
+			file, err := f.Open()
+			if err != nil {
+				w.WriteHeader(http.StatusBadRequest)
+			}
+			data, err := io.ReadAll(file)
+			if err != nil {
+				w.WriteHeader(http.StatusBadRequest)
+			}
+			// ファイル名
+			name := getTimeStamp() + filepath.Ext(f.Filename)
+			os.WriteFile(filepath.Join("./users", userID, "attachment", name), data, 0666)
+			noteAttachment = append(noteAttachment, NoteAttachment{
+				Type:      "Document",
+				MediaType: mime.TypeByExtension(filepath.Ext(f.Filename)),
+				URL:       fmt.Sprintf("https://%s/%s?attachment=%s", domain, userID, name),
+			})
+		}
+
+		if noteText != "" || len(noteAttachment) > 0 {
+			_, err := createNote(userID, noteText, noteReply, noteSensitive, noteAttachment)
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+			}
+			fmt.Println("ok!")
+		}
 	}
 
 	f, err := os.ReadFile(filepath.Join("./assets", "index.html"))
@@ -74,11 +127,10 @@ func ReturnAsset(w http.ResponseWriter, r *http.Request, path []string) {
 		return
 	}
 
-	switch filepath.Ext(root) {
-	case ".css":
-		w.Header().Set("Content-Type", "text/css; charset=utf-8")
-	default:
-		w.Header().Set("Content-Type", http.DetectContentType(f))
-	}
+	w.Header().Set("Content-Type", mime.TypeByExtension(filepath.Ext(root)))
 	w.Write(f)
+}
+
+func getTimeStamp() string { //yyyymmddhhMMddssSSSSSS
+	return time.Now().Local().Format("20060102150405.000000")
 }

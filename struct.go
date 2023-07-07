@@ -53,3 +53,23 @@ type Person struct {
 	Inbox   string `json:"inbox"`
 	Outbox  string `json:"outbox"`
 }
+
+type Note struct {
+	Context      string           `json:"@context"`
+	ID           string           `json:"id"`
+	Type         string           `json:"type"`
+	InReplyTo    interface{}      `json:"inReplyTo"`
+	Published    string           `json:"published"`
+	URL          string           `json:"url"`
+	AttributedTo string           `json:"attributedTo"`
+	Content      string           `json:"content"`
+	To           []string         `json:"to"`
+	Sensitive    bool             `json:"sensitive"`
+	Attachment   []NoteAttachment `json:"attachment"`
+}
+
+type NoteAttachment struct {
+	Type      string `json:"type"`
+	MediaType string `json:"mediaType"`
+	URL       string `json:"url"`
+}

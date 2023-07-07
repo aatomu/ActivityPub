@@ -55,7 +55,7 @@ func getIcon(userID string) (icon []byte, err error) {
 	return os.ReadFile(filepath.Join("./users", userID, "icon.png"))
 }
 
-func getOutbox(userID string) (icon []byte, err error) {
+func getOutbox(userID string) (outbox []byte, err error) {
 	return os.ReadFile(filepath.Join("./users", userID, "outbox.json"))
 }
 
@@ -179,4 +179,36 @@ func createSignature(data []byte, privateKey *rsa.PrivateKey) (signature string,
 	}
 
 	return base64.StdEncoding.EncodeToString(digestBytes), nil
+}
+
+func createNote(userID, noteText, reply string, sensitive bool, attachments []NoteAttachment) (noteBytes []byte, err error) {
+	t := getTimeStamp()
+	note := Note{
+		Context:      "https://www.w3.org/ns/activitystreams",
+		ID:           fmt.Sprintf("https://%s/%s?note=%s", domain, userID, t),
+		Type:         "Note",
+		InReplyTo:    reply,
+		Published:    time.Now().UTC().Format(http.TimeFormat),
+		URL:          fmt.Sprintf("https://%s/%s?note=%s", domain, userID, t),
+		AttributedTo: fmt.Sprintf("https://%s/%s", domain, userID),
+		Content:      fmt.Sprintf("<p>%s<p>", noteText),
+		To: []string{
+			"https://www.w3.org/ns/activitystreams#Public",
+			fmt.Sprintf("https://%s/%s/followers", domain, userID),
+		},
+		Sensitive:  sensitive,
+		Attachment: attachments,
+	}
+
+	noteBytes, err = json.MarshalIndent(note, "", "  ")
+	if err != nil {
+		return
+	}
+
+	err = os.WriteFile(filepath.Join("./users", userID, "note", t+".json"), noteBytes, 0666)
+	if err != nil {
+		return
+	}
+
+	return
 }

@@ -190,7 +190,7 @@ func RequestRouter(w http.ResponseWriter, r *http.Request) {
 
 		case "inbox":
 			// POST以外は対応しない
-			if r.Method != "POST" {
+			if r.Method != http.MethodPost {
 				w.WriteHeader(400)
 				return
 			}
