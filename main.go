@@ -95,7 +95,7 @@ func RequestRouter(w http.ResponseWriter, r *http.Request) {
 		requestLog(r, "ReturnUserData()") // https://${Domain}/${User}?
 		// 存在するユーザか
 		if _, err := os.Stat(filepath.Join("./users", userID)); err != nil {
-			w.WriteHeader(404)
+			w.WriteHeader(http.StatusNotFound)
 			return
 		}
 
@@ -103,7 +103,7 @@ func RequestRouter(w http.ResponseWriter, r *http.Request) {
 		case r.URL.Query().Has("note"): // Note
 			note, err := getNote(userID, r.URL.Query().Get("note"))
 			if err != nil {
-				w.WriteHeader(500)
+				w.WriteHeader(http.StatusNotFound)
 				return
 			}
 			w.Header().Set("Content-Type", "application/activity+json")
@@ -113,7 +113,7 @@ func RequestRouter(w http.ResponseWriter, r *http.Request) {
 		case r.URL.Query().Has("attachment"): // Attachment
 			attachment, err := getAttachment(userID, r.URL.Query().Get("attachment"))
 			if err != nil {
-				w.WriteHeader(500)
+				w.WriteHeader(http.StatusNotFound)
 				return
 			}
 			w.Header().Set("Content-Type", http.DetectContentType(attachment))
@@ -125,7 +125,7 @@ func RequestRouter(w http.ResponseWriter, r *http.Request) {
 			person, err := getPerson(userID)
 			if err != nil {
 				fmt.Println(err)
-				w.WriteHeader(500)
+				w.WriteHeader(http.StatusNotFound)
 				return
 			}
 			w.Header().Set("Content-Type", "application/activity+json")
@@ -145,7 +145,7 @@ func RequestRouter(w http.ResponseWriter, r *http.Request) {
 		// 存在するユーザか
 		userID := router[0]
 		if _, err := os.Stat(filepath.Join("./users", userID)); err != nil {
-			w.WriteHeader(404)
+			w.WriteHeader(http.StatusNotFound)
 			return
 		}
 
@@ -154,34 +154,34 @@ func RequestRouter(w http.ResponseWriter, r *http.Request) {
 			if noClient {
 				followers, err := getFollowers(userID)
 				if err != nil {
-					w.WriteHeader(500)
+					w.WriteHeader(http.StatusInternalServerError)
 					return
 				}
 				w.Header().Set("Content-Type", "application/activity+json")
 				w.Write(followers)
 				return
 			}
-			w.WriteHeader(501)
+			w.WriteHeader(http.StatusNotImplemented)
 			return
 
 		case "following":
 			if noClient {
 				follows, err := getFollows(userID)
 				if err != nil {
-					w.WriteHeader(500)
+					w.WriteHeader(http.StatusInternalServerError)
 					return
 				}
 				w.Header().Set("Content-Type", "application/activity+json")
 				w.Write(follows)
 				return
 			}
-			w.WriteHeader(501)
+			w.WriteHeader(http.StatusNotImplemented)
 			return
 
 		case "icon":
 			icon, err := getIcon(userID)
 			if err != nil {
-				w.WriteHeader(404)
+				w.WriteHeader(http.StatusNotFound)
 				return
 			}
 			w.Header().Set("Content-Type", "image/png")
@@ -191,21 +191,21 @@ func RequestRouter(w http.ResponseWriter, r *http.Request) {
 		case "inbox":
 			// POST以外は対応しない
 			if r.Method != http.MethodPost {
-				w.WriteHeader(400)
+				w.WriteHeader(http.StatusMethodNotAllowed)
 				return
 			}
 
 			// Body読み取り
 			activity, err := io.ReadAll(r.Body)
 			if err != nil {
-				w.WriteHeader(400)
+				w.WriteHeader(http.StatusBadRequest)
 			}
 			// Parse Json
 			var as ActivityStream
 			err = json.Unmarshal(activity, &as)
 			if err != nil {
 				log.Println(err)
-				w.WriteHeader(400)
+				w.WriteHeader(http.StatusBadRequest)
 				return
 			}
 			var ok bool
@@ -217,27 +217,47 @@ func RequestRouter(w http.ResponseWriter, r *http.Request) {
 			log.Printf("InboxRequest: Type:\"%s\" Actor:\"%s\" Object:\"%s\"", as.Type, as.Actor, as.Object)
 			// 処理
 			// Typeに合わせて処理
+			// Supported Activities(Mastdon): This Project Supported Prefix *
+			//  *Follow        : 更新を要求する
+			//  *Accept/Reject : Followを許可/不許可  ~~Blockされている場合は手動選択~~
+			//  Add/Remove     : Manage pinned posts and featured collections.
+			//  *Update        : プロフィールの詳細を更新
+			//  *Delete        : DBからアカウント情報/ステータス を削除
+			//  *Undo          : Follow,Follow Accept,Block を戻す
+			//  Block          : Signal to a remote server that they should hide your profile from that user. Not guaranteed.
+			//  *Flag          : ユーザーをモデレーターチームに報告
+			//  Move           : Migrate followers from one account to another. Requires `alsoKnownAs` to be set on the new account pointing to the old account.
 			switch as.Type {
+			case "Reject", "Add", "Remove", "Block", "Move":
+				w.WriteHeader(http.StatusNotImplemented)
 			case "Follow":
 				// 読み込み
 				follower, err := getFollowersObject(userID)
 				if err != nil {
 					log.Println(err)
-					w.WriteHeader(500)
+					w.WriteHeader(http.StatusNotImplemented)
 					return
 				}
 				// 加工
-				follower.OrderedItems = append(follower.OrderedItems, as.Actor)
+				newFollowers := append(follower.OrderedItems, as.Actor)
+				follower.OrderedItems = []string{}
+				m := make(map[string]bool)
+				for _, actor := range newFollowers { // 重複回避
+					if !m[actor] {
+						m[actor] = true
+						follower.OrderedItems = append(follower.OrderedItems, actor)
+					}
+				}
 				follower.TotalItems = len(follower.OrderedItems)
 				// 保存
 				err = saveFollowers(userID, follower)
 				if err != nil {
 					log.Println(err)
-					w.WriteHeader(500)
+					w.WriteHeader(http.StatusInternalServerError)
 					return
 				}
 
-				w.WriteHeader(202)
+				w.WriteHeader(http.StatusAccepted)
 				// 成功したのを通知
 				res, err := Accept(userID, as.Actor, activity)
 				if err != nil {
@@ -256,7 +276,7 @@ func RequestRouter(w http.ResponseWriter, r *http.Request) {
 					follower, err := getFollowersObject(userID)
 					if err != nil {
 						log.Println(err)
-						w.WriteHeader(500)
+						w.WriteHeader(http.StatusNotImplemented)
 						return
 					}
 					// 加工
@@ -273,11 +293,11 @@ func RequestRouter(w http.ResponseWriter, r *http.Request) {
 					err = saveFollowers(userID, follower)
 					if err != nil {
 						log.Println(err)
-						w.WriteHeader(500)
+						w.WriteHeader(http.StatusInternalServerError)
 						return
 					}
 
-					w.WriteHeader(200)
+					w.WriteHeader(http.StatusAccepted)
 					return
 				}
 			}
@@ -285,7 +305,7 @@ func RequestRouter(w http.ResponseWriter, r *http.Request) {
 		case "outbox":
 			outbox, err := getOutbox(userID)
 			if err != nil {
-				w.WriteHeader(404)
+				w.WriteHeader(http.StatusInternalServerError)
 				return
 			}
 			w.Header().Set("Content-Type", "image/png")
@@ -300,10 +320,10 @@ func RequestRouter(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.WriteHeader(404)
+	w.WriteHeader(http.StatusNotFound)
 }
 
-func HttpGetRequest(method, userID, url string, body []byte, header map[string]string) (*http.Response, error) {
+func HttpRequest(method string, userID, url string, body []byte, header map[string]string) (res *http.Response, err error) {
 	// Http Request 作成
 	req, _ := http.NewRequest(method, url, bytes.NewReader(body))
 	req.Header.Set("user-agent", "original/1.1.1")
@@ -316,13 +336,13 @@ func HttpGetRequest(method, userID, url string, body []byte, header map[string]s
 	// 秘密鍵 読み込み
 	privateKeyBytes, err := os.ReadFile(filepath.Join("./users", userID, "privatekey.pem"))
 	if err != nil {
-		return nil, err
+		return
 	}
 	privateKeyBlock, _ := pem.Decode(privateKeyBytes)
 
 	privateKeyAny, err := x509.ParsePKCS8PrivateKey(privateKeyBlock.Bytes)
 	if err != nil {
-		return nil, err
+		return
 	}
 	privateKey := privateKeyAny.(*rsa.PrivateKey)
 
@@ -332,13 +352,16 @@ func HttpGetRequest(method, userID, url string, body []byte, header map[string]s
 
 	// signature header 作成
 	signatureKeyId := fmt.Sprintf("https://%s/%s#publickey", domain, userID)
-	signatureHeaders := "(request-target) host date digest"
-
-	degestHeader := fmt.Sprintf("(request-target): %s %s\nhost: %s\ndate: %s", strings.ToLower(method), req.URL.Path, req.Host, requestDate)
-	if method == "POST" {
-		degestHeader += fmt.Sprintf("\ndigest: %s", digest)
+	signatureHeaders := "(request-target) host date"
+	if method == http.MethodPost {
+		signatureHeaders += " digest"
 	}
-	signatureData, err := createSignature([]byte(degestHeader), privateKey)
+
+	signatureHeader := fmt.Sprintf("(request-target): %s %s\nhost: %s\ndate: %s", strings.ToLower(method), req.URL.Path, req.Host, requestDate)
+	if method == http.MethodPost {
+		signatureHeader += fmt.Sprintf("\ndigest: %s", digest)
+	}
+	signatureData, err := createSignature([]byte(signatureHeader), privateKey)
 	if err != nil {
 		return nil, err
 	}
@@ -346,10 +369,6 @@ func HttpGetRequest(method, userID, url string, body []byte, header map[string]s
 
 	// Sent Actor Inbox
 	client := new(http.Client)
-	_, err = client.Do(req)
-	if err != nil {
-		return nil, err
-	}
 	return client.Do(req)
 }
 

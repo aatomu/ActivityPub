@@ -6,10 +6,8 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha256"
-	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
-	"encoding/pem"
 	"fmt"
 	"io"
 	"net/http"
@@ -70,7 +68,7 @@ func Accept(userID, actor string, object []byte) (res *http.Response, err error)
 	accept := ActivityStream{
 		Context: "https://www.w3.org/ns/activitystreams",
 		Type:    "Accept",
-		Actor:   fmt.Sprintf("https://%s/%s/person", domain, userID),
+		Actor:   fmt.Sprintf("https://%s/%s", domain, userID),
 		Object:  "${Object}",
 	}
 	acceptBytes, err := json.Marshal(accept)
@@ -79,45 +77,7 @@ func Accept(userID, actor string, object []byte) (res *http.Response, err error)
 	}
 	// Replace DummyData To ActivityObject
 	acceptBytes = bytes.Replace(acceptBytes, []byte("\"${Object}\""), object, 1)
-
-	// Http Request 作成
-	req, _ := http.NewRequest("POST", inboxURL, bytes.NewReader(acceptBytes))
-	req.Header.Set("user-agent", "original/1.1.1")
-	req.Header.Set("accept", "application/json")
-	requestDate := time.Now().UTC().Format(http.TimeFormat)
-	req.Header.Set("date", requestDate)
-
-	// 秘密鍵 読み込み
-	privateKeyBytes, err := os.ReadFile(filepath.Join("./users", userID, "privatekey.pem"))
-	if err != nil {
-		return
-	}
-	privateKeyBlock, _ := pem.Decode(privateKeyBytes)
-
-	privateKeyAny, err := x509.ParsePKCS8PrivateKey(privateKeyBlock.Bytes)
-	if err != nil {
-		return nil, err
-	}
-	privateKey := privateKeyAny.(*rsa.PrivateKey)
-
-	// digest header 生成
-	digest := createDigest(acceptBytes)
-	req.Header.Set("digest", digest)
-
-	// signature header 作成
-	signatureKeyId := fmt.Sprintf("https://%s/%s/person#publickey", domain, userID)
-	signatureHeaders := "(request-target) host date digest"
-
-	degestHeader := fmt.Sprintf("(request-target): post %s\nhost: %s\ndate: %s\ndigest: %s", req.URL.Path, req.Host, requestDate, digest)
-	signatureData, err := createSignature([]byte(degestHeader), privateKey)
-	if err != nil {
-		return
-	}
-	req.Header.Set("signature", fmt.Sprintf("keyId=\"%s\",algorithm=\"rsa-sha256\",headers=\"%s\",signature=\"%s\"", signatureKeyId, signatureHeaders, signatureData))
-
-	// Sent Actor Inbox
-	client := new(http.Client)
-	return client.Do(req)
+	return HttpRequest(http.MethodPost, userID, inboxURL, acceptBytes, map[string]string{"accept": "application/activity+json"})
 }
 
 func getActorInbox(userID, actor string) (inboxURL string, erro error) {
@@ -126,7 +86,7 @@ func getActorInbox(userID, actor string) (inboxURL string, erro error) {
 
 	requestURL := fmt.Sprintf("%s://%s/.well-known/webfinger?resource=%s", URL.Scheme, URL.Host, actor)
 	// Get Webfinger
-	resourceResponse, err := HttpGetRequest("GET", userID, requestURL, []byte{}, map[string]string{})
+	resourceResponse, err := HttpRequest("GET", userID, requestURL, []byte{}, map[string]string{})
 	if err != nil {
 		return "", err
 	}
@@ -147,7 +107,7 @@ func getActorInbox(userID, actor string) (inboxURL string, erro error) {
 		}
 	}
 	// Get Person
-	personResponse, err := HttpGetRequest("GET", userID, selfURL, []byte{}, map[string]string{"accept": requestType})
+	personResponse, err := HttpRequest("GET", userID, selfURL, []byte{}, map[string]string{"accept": requestType})
 	if err != nil {
 		return "", err
 	}
