@@ -2,15 +2,15 @@
 <html lang="ja">
 
 <head>
-  <title>Top / SAP</title>
+  <title>${Title} / SAP</title>
 
   <meta charset="utf-8">
   <meta name="theme-color" content="#1E90FF">
 
   <meta property="og:image" content="https://${Domain}/assets/image/favicon.png" />
-  <meta property="og:title" content="Top / SAP" />
+  <meta property="og:title" content="${Title} / SAP" />
   <meta property="og:site_name" content="Simple Activiy Pub" />
-  <meta property="og:description" content="Twitter Likeな Mastdon/Misskey 対応 SNS" />
+  <meta property="og:description" content="Mastdon/Misskey 対応 SNS" />
 
   <meta name="twitter:card" content="summary" />
   <meta name="twitter:site" content="Owner ${Owner}" />
@@ -30,78 +30,48 @@
       <div class="action">
         🏠Home
       </div>
-      <div class="action">
-        🔔Notice
-      </div>
-      <div class="action">
-        👪Profile
+      <div class="action" style="flex-direction: column;">
+        <input type="text" placeholder="User" onchange="document.cookie = `name=${this.value}`">
+        <input type="password" placeholder="Password" onchange="document.cookie = `passwd=${this.value}`">
+        <input type="button" value="ログイン" onclick="window.location.reload()">
       </div>
       <div class="action">
         <span>🔍</span><input type="text" class="search-box">
       </div>
-      <div class="action">
-        <form method="post" enctype="multipart/form-data" class="note-area" onsubmit="window.location.href = window.location.href">
-          <textarea class="note-text" name="note" placeholder="Note"></textarea>
-          <input type="text" class="note-reply" name="reply" placeholder="ReplyURL"><br>
-          <label><input type="checkbox" class="note-sensitive" name="sensitive">センシティブ</label><br>
-          <label class="note-attachment">
-            <input type="file" accept="image/*,video/*" name="attachments" style="display: none;" multiple
-              id="attachment">画像/動画
-          </label>
-          <soan id="attachment-error"></soan>
-          <br>
-          <input type="submit" value="送信">
-        </form>
-      </div>
-      <div id="attachment-preview"></div>
+      ${Authorized}
     </div>
     <div class="right">
-      <div class="head">
-        TimeLine
+      <div class="head" id="header">
+      </div>
+      <div id="content">
+
       </div>
     </div>
   </div>
 </body>
 
-<script id="init_script">
-  // const Body = document.getElementById("body")
-  const InitScript = document.getElementById("init_script")
+<script>
+  const header = document.getElementById("header")
+  const content = document.getElementById("content")
 
   window.addEventListener("load", async function () {
-    const attach = document.getElementById("attachment")
-    const attachErr = document.getElementById("attachment-error")
+    const path = window.location.pathname.replace("/", "")
+    if (path == "") {
+      header.innerText = "TimeLine"
+      content.innerHTML = "<h1>なんもないよ</h1>"
+    }
 
-    attach.addEventListener("change", function (e) {
-      attachErr.innerText = ""
-      const files = attach.files
-      if (files.length > 4) {
-        e.preventDefault()
-        document.getElementById("attachment-error").innerText = "Error: Not Accept Files.len >4"
-      }
-
-      const preview = document.getElementById("attachment-preview");
-      while (preview.firstChild) {
-        preview.removeChild(preview.firstChild);
-      }
-
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i]
-        if (file.type.startsWith("image")) {
-          var img = document.createElement("img");
-          img.setAttribute("src", URL.createObjectURL(file));
-          img.classList.add("note-preview")
-          preview.appendChild(img);
-        }
-        if (file.type.startsWith("video")) {
-          var video = document.createElement("video");
-          video.setAttribute("src", URL.createObjectURL(file));
-          video.classList.add("note-preview")
-          preview.appendChild(video);
-        }
+    header.innerText = "Profile"
+    person = await fetch(window.location.href, {
+      headers: {
+        "Accept": "application/activity+json",
       }
     })
-    // 削除
-    InitScript.remove()
+      .then((r) => { return r.json() })
+      .catch((e) => {
+        content.innerHTML = "<h1>このサーバーには存在しません</h1>"
+      })
+    console.log(person)
   })
 </script>
 

@@ -87,11 +87,16 @@ func RequestRouter(w http.ResponseWriter, r *http.Request) {
 	switch len(router) {
 	case 1: // Top/User Profile URL
 		userID := router[0]
-		if userID == "" { // https://${Domain}/
+		if !noClient { // https://${Domain}/
 			requestLog(r, "ReturnTop()")
-			ReturnTop(w, r)
+			if userID == "" {
+				ReturnTop(w, r, "TOP")
+			} else {
+				ReturnTop(w, r, userID+"'s Profile")
+			}
 			return
 		}
+
 		requestLog(r, "ReturnUserData()") // https://${Domain}/${User}?
 		// 存在するユーザか
 		if _, err := os.Stat(filepath.Join("./users", userID)); err != nil {
@@ -119,9 +124,7 @@ func RequestRouter(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", http.DetectContentType(attachment))
 			w.Write(attachment)
 			return
-		}
-
-		if noClient { // Get User Person
+		default:
 			person, err := getPerson(userID)
 			if err != nil {
 				fmt.Println(err)
@@ -132,9 +135,6 @@ func RequestRouter(w http.ResponseWriter, r *http.Request) {
 			w.Write(person)
 			return
 		}
-
-		ReturnUserProfile(w, r, userID)
-		return
 
 	case 2: // https://${Domain}/${User}/${Event}
 		if strings.Contains("abtomu adtomu aetomu actomu", router[0]) || router[0] == "aatomu" {
@@ -222,7 +222,7 @@ func RequestRouter(w http.ResponseWriter, r *http.Request) {
 			//  *Accept        : Followを許可 Blockされている場合は手動選択
 			//  Reject         : Followを不許可
 			//  Add/Remove     : Manage pinned posts and featured collections.
-			//  *Update        : プロフィールの詳細を更新
+			//  *Update        : プロフィールの詳細を更新 => もとからDB使ってない...
 			//  *Delete        : DBからアカウント情報/ステータス を削除 => もとからDB使ってない...
 			//  *Undo          : Follow,Follow Accept,Block を戻す
 			//  Block          : Signal to a remote server that they should hide your profile from that user. Not guaranteed.
@@ -235,6 +235,7 @@ func RequestRouter(w http.ResponseWriter, r *http.Request) {
 				inboxEventFollow(w, userID, as.Actor, activity)
 			case "Accept":
 			case "Update":
+				w.WriteHeader(http.StatusAccepted)
 			case "Delete":
 				w.WriteHeader(http.StatusAccepted)
 			case "Undo":

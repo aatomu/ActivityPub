@@ -14,44 +14,25 @@ import (
 	"time"
 )
 
-func ReturnTop(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Query().Has("view") {
-		f, err := os.ReadFile(filepath.Join("./assets", "view_only.html"))
-		if err != nil {
-			w.WriteHeader(404)
-			return
+func ReturnTop(w http.ResponseWriter, r *http.Request, title string) {
+	var userID, password string
+	nameCookie, err := r.Cookie("name")
+	if err == nil {
+		userID = nameCookie.Value
+	}
+	passwdCookie, err := r.Cookie("passwd")
+	if err == nil {
+		password = passwdCookie.Value
+	}
+	isAutorized := false
+	if _, err := os.Stat(filepath.Join("./users", userID)); err == nil { // is EnableUser
+		passwordBytes, err := os.ReadFile(filepath.Join("./users", userID, "password.sha256"))
+		if err == nil {
+			isAutorized = string(passwordBytes) == fmt.Sprintf("%x", sha256.Sum256([]byte(password)))
 		}
-		f = bytes.ReplaceAll(f, []byte("${Domain}"), []byte(domain))
-		f = bytes.ReplaceAll(f, []byte("${Owner}"), []byte(owener))
-
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		w.Write(f)
-		return
 	}
 
-	// request Auth
-	w.Header().Set("WWW-Authenticate", `Basic realm="Check Login User"`)
-	userID, password, authOK := r.BasicAuth()
-
-	if !authOK { // Failed Auth
-		w.WriteHeader(http.StatusUnauthorized)
-		return
-	}
-	if _, err := os.Stat(filepath.Join("./users", userID)); err != nil { // is EnableUser
-		w.WriteHeader(http.StatusUnauthorized)
-		return
-	}
-	passwordBytes, err := os.ReadFile(filepath.Join("./users", userID, "password.sha256"))
-	if err != nil {
-		w.WriteHeader(http.StatusUnauthorized)
-		return
-	}
-	if string(passwordBytes) != fmt.Sprintf("%x", sha256.Sum256([]byte(password))) {
-		w.WriteHeader(http.StatusUnauthorized)
-		return
-	}
-
-	if r.Method == http.MethodPost {
+	if r.Method == http.MethodPost && isAutorized {
 		r.ParseMultipartForm(32 << 20)
 
 		var noteText, noteReply string
@@ -135,15 +116,24 @@ func ReturnTop(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(404)
 		return
 	}
+
 	f = bytes.ReplaceAll(f, []byte("${Domain}"), []byte(domain))
+	f = bytes.ReplaceAll(f, []byte("${Title}"), []byte(title))
 	f = bytes.ReplaceAll(f, []byte("${Owner}"), []byte(owener))
+	if isAutorized {
+		ops, err := os.ReadFile(filepath.Join("./assets", "authorized.html"))
+		if err != nil {
+			log.Println(err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		f = bytes.ReplaceAll(f, []byte("${Authorized}"), ops)
+	} else {
+		f = bytes.ReplaceAll(f, []byte("${Authorized}"), []byte{})
+	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Write(f)
-}
-
-func ReturnUserProfile(w http.ResponseWriter, r *http.Request, userID string) {
-
 }
 
 func ReturnAsset(w http.ResponseWriter, r *http.Request, path []string) {
