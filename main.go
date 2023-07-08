@@ -219,87 +219,26 @@ func RequestRouter(w http.ResponseWriter, r *http.Request) {
 			// Typeに合わせて処理
 			// Supported Activities(Mastdon): This Project Supported Prefix *
 			//  *Follow        : 更新を要求する
-			//  *Accept/Reject : Followを許可/不許可  ~~Blockされている場合は手動選択~~
+			//  *Accept        : Followを許可 Blockされている場合は手動選択
+			//  Reject         : Followを不許可
 			//  Add/Remove     : Manage pinned posts and featured collections.
 			//  *Update        : プロフィールの詳細を更新
-			//  *Delete        : DBからアカウント情報/ステータス を削除
+			//  *Delete        : DBからアカウント情報/ステータス を削除 => もとからDB使ってない...
 			//  *Undo          : Follow,Follow Accept,Block を戻す
 			//  Block          : Signal to a remote server that they should hide your profile from that user. Not guaranteed.
-			//  *Flag          : ユーザーをモデレーターチームに報告
+			//  Flag           : ユーザーをモデレーターチームに報告
 			//  Move           : Migrate followers from one account to another. Requires `alsoKnownAs` to be set on the new account pointing to the old account.
 			switch as.Type {
-			case "Reject", "Add", "Remove", "Block", "Move":
+			case "Reject", "Add", "Remove", "Block", "Flag", "Move":
 				w.WriteHeader(http.StatusNotImplemented)
 			case "Follow":
-				// 読み込み
-				follower, err := getFollowersObject(userID)
-				if err != nil {
-					log.Println(err)
-					w.WriteHeader(http.StatusNotImplemented)
-					return
-				}
-				// 加工
-				newFollowers := append(follower.OrderedItems, as.Actor)
-				follower.OrderedItems = []string{}
-				m := make(map[string]bool)
-				for _, actor := range newFollowers { // 重複回避
-					if !m[actor] {
-						m[actor] = true
-						follower.OrderedItems = append(follower.OrderedItems, actor)
-					}
-				}
-				follower.TotalItems = len(follower.OrderedItems)
-				// 保存
-				err = saveFollowers(userID, follower)
-				if err != nil {
-					log.Println(err)
-					w.WriteHeader(http.StatusInternalServerError)
-					return
-				}
-
+				inboxEventFollow(w, userID, as.Actor, activity)
+			case "Accept":
+			case "Update":
+			case "Delete":
 				w.WriteHeader(http.StatusAccepted)
-				// 成功したのを通知
-				res, err := Accept(userID, as.Actor, activity)
-				if err != nil {
-					log.Println(err)
-					return
-				}
-				if res.StatusCode >= 400 && res.StatusCode < 600 {
-					log.Println("Failed Accept")
-				}
-				return
-
 			case "Undo":
-				switch as.objectActivity.Type {
-				case "Follow":
-					// 読み込み
-					follower, err := getFollowersObject(userID)
-					if err != nil {
-						log.Println(err)
-						w.WriteHeader(http.StatusNotImplemented)
-						return
-					}
-					// 加工
-					newFollower := []string{}
-					for _, v := range follower.OrderedItems {
-						if v == as.objectActivity.Actor {
-							continue
-						}
-						newFollower = append(newFollower, v)
-					}
-					follower.OrderedItems = newFollower
-					follower.TotalItems = len(follower.OrderedItems)
-					// 保存
-					err = saveFollowers(userID, follower)
-					if err != nil {
-						log.Println(err)
-						w.WriteHeader(http.StatusInternalServerError)
-						return
-					}
-
-					w.WriteHeader(http.StatusAccepted)
-					return
-				}
+				inboxEventUndo(w, userID, as.objectActivity)
 			}
 
 		case "outbox":

@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -55,6 +56,78 @@ func getIcon(userID string) (icon []byte, err error) {
 
 func getOutbox(userID string) (outbox []byte, err error) {
 	return os.ReadFile(filepath.Join("./users", userID, "outbox.json"))
+}
+
+func inboxEventFollow(w http.ResponseWriter, userID, actor string, activity []byte) {
+	// 読み込み
+	follower, err := getFollowersObject(userID)
+	if err != nil {
+		log.Println(err)
+		w.WriteHeader(http.StatusNotImplemented)
+		return
+	}
+	// 加工
+	newFollowers := append(follower.OrderedItems, actor)
+	follower.OrderedItems = []string{}
+	m := make(map[string]bool)
+	for _, actor := range newFollowers { // 重複回避
+		if !m[actor] {
+			m[actor] = true
+			follower.OrderedItems = append(follower.OrderedItems, actor)
+		}
+	}
+	follower.TotalItems = len(follower.OrderedItems)
+	// 保存
+	err = saveFollowers(userID, follower)
+	if err != nil {
+		log.Println(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusAccepted)
+	// 成功したのを通知
+	res, err := Accept(userID, actor, activity)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	if res.StatusCode >= 400 && res.StatusCode < 600 {
+		log.Println("Failed Accept")
+	}
+}
+
+func inboxEventUndo(w http.ResponseWriter, userID string, undoActivity ActivityStreamObject) {
+	switch undoActivity.Type {
+	case "Follow":
+		// 読み込み
+		follower, err := getFollowersObject(userID)
+		if err != nil {
+			log.Println(err)
+			w.WriteHeader(http.StatusNotImplemented)
+			return
+		}
+		// 加工
+		newFollower := []string{}
+		for _, v := range follower.OrderedItems {
+			if v == undoActivity.Actor {
+				continue
+			}
+			newFollower = append(newFollower, v)
+		}
+		follower.OrderedItems = newFollower
+		follower.TotalItems = len(follower.OrderedItems)
+		// 保存
+		err = saveFollowers(userID, follower)
+		if err != nil {
+			log.Println(err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		w.WriteHeader(http.StatusAccepted)
+		return
+	}
 }
 
 func Accept(userID, actor string, object []byte) (res *http.Response, err error) {
