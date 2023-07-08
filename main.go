@@ -234,6 +234,7 @@ func RequestRouter(w http.ResponseWriter, r *http.Request) {
 			case "Follow":
 				inboxEventFollow(w, userID, as.Actor, activity)
 			case "Accept":
+				inboxEventAccept(w, r, userID)
 			case "Update":
 				w.WriteHeader(http.StatusAccepted)
 			case "Delete":

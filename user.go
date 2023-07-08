@@ -97,6 +97,15 @@ func inboxEventFollow(w http.ResponseWriter, userID, actor string, activity []by
 	}
 }
 
+func inboxEventAccept(w http.ResponseWriter, r *http.Request, userID string) {
+	if r.Header.Get("Signature") == "" {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+
+	fmt.Println(r.Header.Values("Signature"))
+}
+
 func inboxEventUndo(w http.ResponseWriter, userID string, undoActivity ActivityStreamObject) {
 	switch undoActivity.Type {
 	case "Follow":
