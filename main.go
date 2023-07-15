@@ -242,6 +242,7 @@ func RequestRouter(w http.ResponseWriter, r *http.Request) {
 			case "Undo":
 				inboxEventUndo(w, userID, as.objectActivity)
 			}
+			return
 
 		case "outbox":
 			outbox, err := getOutbox(userID)
