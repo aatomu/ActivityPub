@@ -26,7 +26,7 @@ func getFollowers(userID string) (followers []byte, err error) {
 	return os.ReadFile(filepath.Join("./users", userID, "follower.json"))
 }
 
-func getFollowersObject(userID string) (follower ActivityStreamOrderedCollection, err error) {
+func getFollowersObject(userID string) (follower ActivityStream, err error) {
 	followers, err := getFollowers(userID)
 	if err != nil {
 		return
@@ -39,10 +39,10 @@ func getFollowersObject(userID string) (follower ActivityStreamOrderedCollection
 	return
 }
 
-func saveFollowers(userID string, follower ActivityStreamOrderedCollection) error {
+func saveFollowers(userID string, follower ActivityStream) error {
 	followerFile := filepath.Join("./users", userID, "follower.json")
 
-	followerList, _ := json.MarshalIndent(follower, "", "  ")
+	followerList, _ := ToJson(follower)
 	return os.WriteFile(followerFile, followerList, 0666)
 }
 
@@ -54,7 +54,22 @@ func getIcon(userID string) (icon []byte, err error) {
 	return os.ReadFile(filepath.Join("./users", userID, "icon.png"))
 }
 
-func getOutbox(userID string) (outbox []byte, err error) {
+func getOutbox(userID string, page string) (outbox []byte, err error) {
+	d, err := filepath.Glob(filepath.Join("./users", userID, "note", "*.json"))
+	if err != nil {
+		return
+	}
+
+	if page == "" {
+		out := ActivityStream{
+			Context:    "https://www.w3.org/ns/activitystreams",
+			ID:         fmt.Sprintf("https://%s/%s/outbox", domain, userID),
+			Type:       "OrderedCollection",
+			TotalItems: len(d),
+			First:      fmt.Sprintf("https://%s/%s/outbox?page=%d", domain, userID, 0),
+		}
+		return ToJson(out)
+	}
 	return os.ReadFile(filepath.Join("./users", userID, "outbox.json"))
 }
 
@@ -106,7 +121,7 @@ func inboxEventAccept(w http.ResponseWriter, r *http.Request, userID string) {
 	fmt.Println(r.Header.Values("Signature"))
 }
 
-func inboxEventUndo(w http.ResponseWriter, userID string, undoActivity ActivityStreamObject) {
+func inboxEventUndo(w http.ResponseWriter, userID string, undoActivity ActivityStream) {
 	switch undoActivity.Type {
 	case "Follow":
 		// 読み込み
@@ -244,7 +259,7 @@ func createNote(userID, noteText, reply string, sensitive bool, attachments []No
 		Attachment: attachments,
 	}
 
-	noteBytes, err = json.MarshalIndent(note, "", "  ")
+	noteBytes, err = ToJson(note)
 	if err != nil {
 		return
 	}

@@ -1,27 +1,24 @@
 package main
 
 type ActivityStream struct {
-	Context        interface{} `json:"@context,omitempty"`
-	ID             string      `json:"id,omitempty"`
-	Type           string      `json:"type,omitempty"`
-	Actor          string      `json:"actor,omitempty"`
+	Context interface{} `json:"@context,omitempty"`
+	ID      string      `json:"id"`
+	Type    string      `json:"type"`
+	// Follow,Undo,Accept
+	Actor string `json:"actor,omitempty"`
+	// Inbox
 	Object         interface{} `json:"object,omitempty"`
 	objectStr      string
-	objectActivity ActivityStreamObject
-}
-
-type ActivityStreamObject struct {
-	ID     string `json:"id"`
-	Type   string `json:"type"`
-	Actor  string `json:"actor"`
-	Object string `json:"object"`
-}
-type ActivityStreamOrderedCollection struct {
-	Context      []string `json:"@context"`
-	Type         string   `json:"type"`
-	ID           string   `json:"id"`
-	TotalItems   int      `json:"totalItems"`
-	OrderedItems []string `json:"orderedItems"`
+	objectActivity *ActivityStream
+	// Follower,Following,Outbox
+	TotalItems   int      `json:"totalItems,omitempty"`
+	OrderedItems []string `json:"orderedItems,omitempty"`
+	// Outbox
+	First  string `json:"first,omitempty"`
+	Last   string `json:"last,omitempty"`
+	Next   string `json:"next,omitempty"`
+	Prev   string `json:"prev,omitempty"`
+	PartOf string `json:"partOf,omitempty"`
 }
 
 type Resource struct {

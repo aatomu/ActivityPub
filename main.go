@@ -240,17 +240,17 @@ func RequestRouter(w http.ResponseWriter, r *http.Request) {
 			case "Delete":
 				w.WriteHeader(http.StatusAccepted)
 			case "Undo":
-				inboxEventUndo(w, userID, as.objectActivity)
+				inboxEventUndo(w, userID, *as.objectActivity)
 			}
 			return
 
 		case "outbox":
-			outbox, err := getOutbox(userID)
+			outbox, err := getOutbox(userID, r.URL.Query().Get("page"))
 			if err != nil {
 				w.WriteHeader(http.StatusInternalServerError)
 				return
 			}
-			w.Header().Set("Content-Type", "image/png")
+			w.Header().Set("Content-Type", "application/activity+json")
 			w.Write(outbox)
 			return
 		}
@@ -321,4 +321,8 @@ func requestLog(r *http.Request, catch string) {
 		accept = strings.Join(strings.Split(accept, "")[:40], "") + "..."
 	}
 	log.Printf("Access:\"%s\" Catch:\"%s\" Method:\"%s\" URL:\"%s\" Accept:\"%s\" Content-Type:\"%s\"", r.RemoteAddr, catch, r.Method, requestURL, accept, r.Header.Get("Content-Type"))
+}
+
+func ToJson(v interface{}) (b []byte, err error) {
+	return json.MarshalIndent(v, "", "  ")
 }
