@@ -136,6 +136,8 @@ func inboxEventUndo(w http.ResponseWriter, userID string, undoActivity ActivityS
 
 		w.WriteHeader(http.StatusAccepted)
 		return
+	default:
+		w.WriteHeader(http.StatusNotImplemented)
 	}
 }
 
