@@ -42,14 +42,6 @@ func init() {
 		panic(err)
 	}
 	webfingerTemplate = bytes.ReplaceAll(b, []byte("${Domain}"), []byte(domain))
-
-	// ActivityPub Person Template
-	// b, err = os.ReadFile("./assets/person.json")
-	// if err != nil {
-	// 	panic(err)
-	// }
-	// personTemplate = bytes.ReplaceAll(b, []byte("${Domain}"), []byte(domain))
-
 }
 
 func main() {
@@ -82,12 +74,13 @@ func RequestRouter(w http.ResponseWriter, r *http.Request) {
 	router := strings.Split(strings.Replace(r.URL.Path, "/", "", 1), "/")
 
 	// 通常リクエストか
-	noClient := strings.Contains(r.Header.Get("Accept"), "application/activity+json")
+	isClient := !strings.Contains(r.Header.Get("Accept"), "application/activity+json")
 
 	switch len(router) {
 	case 1: // Top/User Profile URL
 		userID := router[0]
-		if !noClient { // https://${Domain}/
+
+		if isClient { // https://${Domain}/
 			requestLog(r, "ReturnTop()")
 			if userID == "" {
 				ReturnTop(w, r, "TOP")
@@ -151,7 +144,7 @@ func RequestRouter(w http.ResponseWriter, r *http.Request) {
 
 		switch router[1] {
 		case "followers":
-			if noClient {
+			if !isClient {
 				followers, err := getFollowers(userID)
 				if err != nil {
 					w.WriteHeader(http.StatusInternalServerError)
@@ -165,7 +158,7 @@ func RequestRouter(w http.ResponseWriter, r *http.Request) {
 			return
 
 		case "following":
-			if noClient {
+			if !isClient {
 				follows, err := getFollows(userID)
 				if err != nil {
 					w.WriteHeader(http.StatusInternalServerError)
