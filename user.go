@@ -15,6 +15,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"time"
 )
@@ -77,6 +78,10 @@ func getOutbox(userID string, page string) (outbox []byte, err error) {
 	if err != nil {
 		return
 	}
+
+	sort.SliceStable(notes, func(i, j int) bool {
+		return i > j
+	})
 
 	var list []interface{}
 	var note Note
