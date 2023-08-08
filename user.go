@@ -56,7 +56,7 @@ func getIcon(userID string) (icon []byte, err error) {
 }
 
 func getOutbox(userID string, page string) (outbox []byte, err error) {
-	d, err := filepath.Glob(filepath.Join("./users", userID, "note", "*.json"))
+	notes, err := filepath.Glob(filepath.Join("./users", userID, "note", "*.json"))
 	if err != nil {
 		return
 	}
@@ -66,9 +66,9 @@ func getOutbox(userID string, page string) (outbox []byte, err error) {
 			Context:    "https://www.w3.org/ns/activitystreams",
 			ID:         fmt.Sprintf("https://%s/%s/outbox", domain, userID),
 			Type:       "OrderedCollection",
-			TotalItems: len(d),
+			TotalItems: len(notes),
 			First:      fmt.Sprintf("https://%s/%s/outbox?page=%d", domain, userID, 0),
-			Last:       fmt.Sprintf("https://%s/%s/outbox?page=%d", domain, userID, (len(d)+20)/20),
+			Last:       fmt.Sprintf("https://%s/%s/outbox?page=%d", domain, userID, len(notes)/20),
 		}
 		return ToJson(out)
 	}
@@ -80,8 +80,8 @@ func getOutbox(userID string, page string) (outbox []byte, err error) {
 
 	var list []interface{}
 	var note Note
-	for i := pageNum * 20; i < len(d) && i < pageNum*20+20; i++ {
-		noteBytes, err := os.ReadFile(d[i])
+	for i := pageNum * 20; i < len(notes) && i < pageNum*20+20; i++ {
+		noteBytes, err := os.ReadFile(notes[i])
 		if err != nil {
 			return []byte{}, err
 		}
@@ -94,10 +94,10 @@ func getOutbox(userID string, page string) (outbox []byte, err error) {
 	}
 
 	var next, prev string
-	if len(d) > pageNum+1*20 {
+	if len(notes) > pageNum+1*20 {
 		next = fmt.Sprintf("https://%s/%s/outbox?page=%d", domain, userID, pageNum+1)
 	}
-	if len(d)-pageNum-1*20 > 0 {
+	if len(notes)-pageNum-1*20 > 0 {
 		prev = fmt.Sprintf("https://%s/%s/outbox?page=%d", domain, userID, pageNum-1)
 	}
 	collection := ActivityStream{
