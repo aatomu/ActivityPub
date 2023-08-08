@@ -100,7 +100,7 @@ func ReturnTop(w http.ResponseWriter, r *http.Request, title string) {
 				return
 			}
 			for _, actorID := range followers.OrderedItems {
-				url, err := getActorInbox(userID, actorID)
+				url, err := getActorInbox(userID, actorID.(string))
 				if err != nil {
 					continue
 				}

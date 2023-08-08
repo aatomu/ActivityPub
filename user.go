@@ -15,6 +15,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
 )
 
@@ -67,10 +68,48 @@ func getOutbox(userID string, page string) (outbox []byte, err error) {
 			Type:       "OrderedCollection",
 			TotalItems: len(d),
 			First:      fmt.Sprintf("https://%s/%s/outbox?page=%d", domain, userID, 0),
+			Last:       fmt.Sprintf("https://%s/%s/outbox?page=%d", domain, userID, (len(d)+20)/20),
 		}
 		return ToJson(out)
 	}
-	return os.ReadFile(filepath.Join("./users", userID, "outbox.json"))
+
+	pageNum, err := strconv.Atoi(page)
+	if err != nil {
+		return
+	}
+
+	var list []interface{}
+	var note Note
+	for i := pageNum * 20; i < len(d) && i < pageNum*20+20; i++ {
+		noteBytes, err := os.ReadFile(d[i])
+		if err != nil {
+			return []byte{}, err
+		}
+		json.Unmarshal(noteBytes, &note)
+		list = append(list, ActivityStream{
+			Context: "https://www.w3.org/ns/activitystreams",
+			Type:    "Create",
+			Object:  note,
+		})
+	}
+
+	var next, prev string
+	if len(d) > pageNum+1*20 {
+		next = fmt.Sprintf("https://%s/%s/outbox?page=%d", domain, userID, pageNum+1)
+	}
+	if len(d)-pageNum-1*20 > 0 {
+		prev = fmt.Sprintf("https://%s/%s/outbox?page=%d", domain, userID, pageNum-1)
+	}
+	collection := ActivityStream{
+		Context:      "https://www.w3.org/ns/activitystreams",
+		ID:           fmt.Sprintf("https://%s/%s/outbox?page=%s", domain, userID, page),
+		Type:         "OrderedCollectionPage",
+		Next:         next,
+		Prev:         prev,
+		PartOf:       fmt.Sprintf("https://%s/%s/outbox", domain, userID),
+		OrderedItems: list,
+	}
+	return ToJson(collection)
 }
 
 func inboxEventFollow(w http.ResponseWriter, userID, actor string, activity []byte) {
@@ -83,14 +122,15 @@ func inboxEventFollow(w http.ResponseWriter, userID, actor string, activity []by
 	}
 	// 加工
 	newFollowers := append(follower.OrderedItems, actor)
-	follower.OrderedItems = []string{}
+	var items []interface{}
 	m := make(map[string]bool)
 	for _, actor := range newFollowers { // 重複回避
-		if !m[actor] {
-			m[actor] = true
-			follower.OrderedItems = append(follower.OrderedItems, actor)
+		if !m[actor.(string)] {
+			m[actor.(string)] = true
+			items = append(items, actor)
 		}
 	}
+	follower.OrderedItems = items
 	follower.TotalItems = len(follower.OrderedItems)
 	// 保存
 	err = saveFollowers(userID, follower)
@@ -132,7 +172,7 @@ func inboxEventUndo(w http.ResponseWriter, userID string, undoActivity ActivityS
 			return
 		}
 		// 加工
-		newFollower := []string{}
+		var newFollower []interface{}
 		for _, v := range follower.OrderedItems {
 			if v == undoActivity.Actor {
 				continue

@@ -2,7 +2,7 @@ package main
 
 type ActivityStream struct {
 	Context interface{} `json:"@context,omitempty"`
-	ID      string      `json:"id"`
+	ID      string      `json:"id,omitempty"`
 	Type    string      `json:"type"`
 	// Follow,Undo,Accept
 	Actor string `json:"actor,omitempty"`
@@ -10,15 +10,15 @@ type ActivityStream struct {
 	Object         interface{} `json:"object,omitempty"`
 	objectStr      string
 	objectActivity *ActivityStream
-	// Follower,Following,Outbox
-	TotalItems   int      `json:"totalItems,omitempty"`
-	OrderedItems []string `json:"orderedItems,omitempty"`
 	// Outbox
 	First  string `json:"first,omitempty"`
 	Last   string `json:"last,omitempty"`
 	Next   string `json:"next,omitempty"`
 	Prev   string `json:"prev,omitempty"`
 	PartOf string `json:"partOf,omitempty"`
+	// Follower,Following,Outbox
+	TotalItems   int           `json:"totalItems,omitempty"`
+	OrderedItems []interface{} `json:"orderedItems,omitempty"`
 }
 
 type Resource struct {
